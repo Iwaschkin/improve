@@ -89,7 +89,7 @@ Modifier on any planning invocation (`/improve --issues`, `/improve security --i
 
 1. Preflight: `gh auth status` succeeds and the repo has a GitHub remote. If either fails, write the plan files as normal and say why issues were skipped.
 2. Visibility check: `gh repo view --json visibility`. If the repo is **public**, warn the user that issues are publicly visible and get explicit confirmation before publishing any plan that describes a security vulnerability, credential location, or other sensitive finding.
-3. Show the list of titles about to become issues; confirm once if interactive.
+3. Show the list of titles about to become issues; confirm once if interactive. Non-interactive on a public repo: exclude any plan describing a security vulnerability, credential location, or other sensitive finding — the plan file is still written; record "issue skipped: sensitive content + public repo, needs interactive confirmation" in the index.
 4. Per plan: `gh issue create --title "<plan title>" --body-file <plan file>`. Labels: `improve` plus the category — apply only if the labels exist or can be created without erroring; skip labels rather than fail.
 5. Record each issue URL in the plan's Status block (`- **Issue**: <url>`) and the index.
 
