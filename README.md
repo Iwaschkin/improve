@@ -41,7 +41,7 @@ A typical first run, start to finish:
 1. Open your agent in the repo and run `/improve` (or `/improve quick` to keep it cheap).
 2. It maps the repo, audits it, and comes back with a findings table. Reply with the ones you want planned — "plan 1, 3 and 5".
 3. Plans land in `docs/dev/plans/` — one file each, plus an index with the recommended order. Read them; they're meant to be reviewed.
-4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews the diff against the plan before running it, and reports back with the worktree path, branch, and verdict. Merging stays up to you.
+4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews `EXECUTION_BASE_SHA..HEAD` before running repository code, and reports back with the worktree path, branch, reviewed commit, verification environment, and verdict. Merging stays up to you.
 5. Next session, run `/improve reconcile` to clean up the backlog: verify what landed, refresh what drifted, unblock what got stuck.
 
 Before a PR, `/improve branch` does the same thing scoped to just what your branch changes.
@@ -71,7 +71,7 @@ Picking #1 produced [this plan](./examples/001-extract-shadow-config-resolution.
 
 ## How it works
 
-**Recon.** Maps the repo: stack, conventions, and the exact build/test/lint commands — these become verification gates in every plan. It also ingests intent and design docs when present — ADRs (`docs/adr/`), PRDs, `CONTEXT.md`, `DESIGN.md`, `PRODUCT.md` — so decided tradeoffs aren't re-flagged as findings, direction suggestions stay grounded in stated product intent, and plans speak the repo's own vocabulary. Composes with any repo that already maintains these docs.
+**Recon.** Maps the repo: stack, conventions, and the exact build/test/lint commands, including where each command came from and whether it executes repository code. These become verification gates in every plan, but the plan distinguishes commands that were discovered from commands that were actually run. It also ingests intent and design docs when present — ADRs (`docs/adr/`), PRDs, `CONTEXT.md`, `DESIGN.md`, `PRODUCT.md` — so decided tradeoffs aren't re-flagged as findings, direction suggestions stay grounded in stated product intent, and plans speak the repo's own vocabulary. Composes with any repo that already maintains these docs.
 
 **Audit.** Fans out parallel subagents across nine categories: correctness, security, performance, test coverage, tech debt, dependencies & migrations, DX, docs, and direction (feature suggestions — every one must cite evidence from the repo itself, no generic idea-slop). Every finding carries `file:line` evidence, impact, effort, and confidence.
 
@@ -85,7 +85,7 @@ Picking #1 produced [this plan](./examples/001-extract-shadow-config-resolution.
 
 Plans are written for the weakest plausible executor — a model that has never seen the advisor session and may be much smaller. Three properties carry that:
 
-- **Self-contained.** All context is inlined: exact file paths, current-state code excerpts, repo conventions with an exemplar file, verified commands. No "as discussed above."
+- **Self-contained.** All context is inlined: exact file paths, current-state code excerpts, repo conventions with an exemplar file, command provenance, and execution-safety notes. No "as discussed above."
 - **Verification gates.** Every step ends with a command and its expected output. Done criteria are machine-checkable. The executor never has to judge whether it succeeded.
 - **Hard boundaries.** Explicit out-of-scope lists, and STOP conditions — "if X, stop and report" — instead of letting a small model improvise when reality doesn't match the plan.
 
@@ -95,14 +95,14 @@ Each plan also stamps the git commit it was written against, so executors run a 
 
 Plans aren't fire-and-forget:
 
-- **`execute <plan>`** dispatches a cheaper executor in an ignored workspace-local disposable git worktree. The executor can be a worktree-isolated subagent or, when the host cannot spawn one, a headless coding CLI run from the prepared worktree. The advisor checks scope, reads the diff and tests, then re-runs every done criterion. Verdict: approve (merging stays your call), send back for revision (max 2 rounds), or block and refine the plan.
-- **`reconcile`** processes what happened since: verifies DONE plans still hold, investigates BLOCKED ones and rewrites around the obstacle, refreshes drifted plans, retires findings that got fixed independently.
+- **`execute <plan>`** dispatches a cheaper executor in an ignored workspace-local disposable git worktree. The executor can be a worktree-isolated subagent or, when the host cannot spawn one, a headless coding CLI run from the prepared worktree. Automatic execution requires a clean committed baseline and an execution environment decision: restricted sandbox, explicit user-confirmed normal account, or no repository-code execution. The advisor checks scope, reads committed and uncommitted diffs, audits tests, then re-runs permitted done criteria. Approval marks the plan REVIEWED; MERGED and VERIFIED happen only after reconciliation on the target branch.
+- **`reconcile`** processes what happened since: checks REVIEWED work for merge reachability, verifies MERGED work on the target branch, investigates BLOCKED plans and rewrites around obstacles, refreshes drifted TODO plans, and retires findings that got fixed independently.
 - **`--issues`** publishes plans as GitHub issues — same self-contained body, so any agent or human can pick them up where work already lives.
 
 ## Hard rules
 
 - Never modifies source code itself. The only writes go to `docs/dev/plans/`; executor worktrees are disposable and ignored under `docs/dev/plans/.worktrees/` by default, executors edit only there, and merging is always yours.
-- Never runs commands that mutate your working tree — read, search, and read-only analysis only.
+- Never runs commands that mutate your working tree; repository-code commands require a restricted sandbox or explicit user confirmation.
 - Never reproduces secret values. Locations and credential types only, rotation always recommended.
 - Asked to implement? It declines and points at the plan (or offers `execute`).
 

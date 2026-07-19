@@ -6,10 +6,12 @@ Sample output. A real plan produced by `/improve` against
 moved on — don't execute this; run `/improve` on your own repo instead.
 
 > **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. If anything in the "STOP conditions" section occurs, stop and
-> report — do not improvise. When done, update the status row for this plan
-> in `docs/dev/plans/README.md`.
+> verification command permitted by the execution environment and confirm the
+> expected result before moving to the next step. If repository-code execution
+> is not permitted, skip those commands and report that they were not run. If
+> anything in the "STOP conditions" section occurs, stop and report — do not
+> improvise. When finished, update the status row for this plan in
+> `docs/dev/plans/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat 1994caba0..HEAD -- packages/shadcn/src/commands/search.ts packages/shadcn/src/commands/view.ts packages/shadcn/src/registry/config.ts`
 > If any of these changed since this plan was written, compare the
@@ -18,12 +20,14 @@ moved on — don't execute this; run `/improve` on your own repo instead.
 
 ## Status
 
+- **Status**: TODO
 - **Priority**: P2
 - **Effort**: M
 - **Risk**: MED
 - **Depends on**: none
 - **Category**: tech-debt
 - **Planned at**: commit `1994caba0`, 2026-06-10
+- **Working tree clean**: true
 
 ## Why this matters
 
@@ -157,7 +161,7 @@ Replace the block at ~36–55 with `resolveShadowConfig(options.cwd)` (no seed �
 - [ ] `grep -rn "TODO: We're duplicating logic for shadowConfig" packages/shadcn/src/` returns no matches (comment removed with the duplication)
 - [ ] Both `search.ts` and `view.ts` call `resolveShadowConfig`; neither contains an inline shadow-config block
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] `docs/dev/plans/README.md` status row updated
+- [ ] `docs/dev/plans/README.md` status row updated with the current lifecycle state
 
 ## STOP conditions
 
