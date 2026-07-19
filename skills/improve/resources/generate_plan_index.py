@@ -24,9 +24,9 @@ from plan_state import (  # noqa: E402
     PlanValue,
     collect_plans,
     load_rejections,
+    plans_dir_display,
+    resolve_plans_dir,
 )
-
-DEFAULT_PLANS_DIR = Path.cwd() / "docs" / "dev" / "plans"
 
 
 def escape_cell(text: str) -> str:
@@ -163,13 +163,17 @@ def write_index_atomically(index_path: Path, content: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate docs/dev/plans/README.md")
+    parser = argparse.ArgumentParser(
+        description="Generate the selected plan directory's README.md index"
+    )
     parser.add_argument(
-        "--plans-dir", default=str(DEFAULT_PLANS_DIR), help="plan directory"
+        "--plans-dir", required=True, help="selected plans directory"
     )
     args = parser.parse_args()
-    plans_dir = Path(args.plans_dir)
-    plans_dir.mkdir(parents=True, exist_ok=True)
+    plans_dir, problem = resolve_plans_dir(args.plans_dir)
+    if plans_dir is None:
+        print(f"ERROR {problem}", file=sys.stderr)
+        return 2
 
     rows, errors = collect_plans(plans_dir)
     rejections = load_rejections(plans_dir, errors)
@@ -184,7 +188,7 @@ def main() -> int:
 
     index_path = plans_dir / "README.md"
     write_index_atomically(index_path, render_index(rows, rejections))
-    print(f"wrote {index_path}")
+    print(f"wrote {plans_dir_display(plans_dir)}/README.md")
     return 0
 
 

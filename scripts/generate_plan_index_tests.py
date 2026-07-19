@@ -80,18 +80,22 @@ def lifecycle_plan(status: str, **overrides: object) -> str:
 
 
 def run_generator(plans_dir: Path) -> subprocess.CompletedProcess[str]:
+    # Helpers enforce repository-root containment: run from the fixture root
+    # with a relative directory, the way the documented workflow invokes them.
     return subprocess.run(
-        [sys.executable, str(GENERATOR), "--plans-dir", str(plans_dir)],
+        [sys.executable, str(GENERATOR), "--plans-dir", plans_dir.name],
         capture_output=True,
         text=True,
+        cwd=plans_dir.parent,
     )
 
 
 def run_plan_state(plans_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(PLAN_STATE), "--plans-dir", str(plans_dir), *args],
+        [sys.executable, str(PLAN_STATE), "--plans-dir", plans_dir.name, *args],
         capture_output=True,
         text=True,
+        cwd=plans_dir.parent,
     )
 
 
@@ -124,6 +128,98 @@ def snapshot(directory: Path) -> dict[str, bytes]:
 def check(condition: bool, label: str, failures: list[str]) -> None:
     if not condition:
         failures.append(label)
+
+
+def test_selected_directory_containment() -> bool:
+    """Helpers act only on the explicit directory, inside the repo root."""
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        default_dir = root / "docs" / "dev" / "plans"
+        alternate = root / "docs" / "dev" / "advisor-plans"
+        default_dir.mkdir(parents=True)
+        alternate.mkdir(parents=True)
+        # Unrelated content in the default location; a real backlog in the
+        # alternate. Sentinel bytes prove the other directory is untouched.
+        unrelated = "# Roadmap\n\nUnrelated planning system.\n"
+        (default_dir / "README.md").write_text(unrelated, encoding="utf-8")
+        (default_dir / "notes.md").write_text("unrelated notes\n", encoding="utf-8")
+        (alternate / "001-test-plan.md").write_text(
+            plan_frontmatter(), encoding="utf-8"
+        )
+        before_default = snapshot(default_dir)
+
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "docs/dev/advisor-plans"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 0, "generator runs on the alternate directory", failures)
+        check(
+            "docs/dev/advisor-plans/README.md" in result.stdout,
+            "generator reports the repository-relative selected path",
+            failures,
+        )
+        check(
+            (alternate / "README.md").exists(),
+            "alternate index was written",
+            failures,
+        )
+        check(
+            snapshot(default_dir) == before_default,
+            "unrelated default directory is byte-for-byte untouched",
+            failures,
+        )
+
+        # Windows-style separators at the input boundary resolve identically.
+        result = subprocess.run(
+            [sys.executable, str(PLAN_STATE), "--plans-dir",
+             "docs\\dev\\advisor-plans", "validate"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 0, "backslash input path validates", failures)
+
+        # Escapes and omissions fail before any read or write.
+        before_root = snapshot(root)
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "../outside"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 2, "traversal outside the root exits 2", failures)
+        check(
+            "outside the" in result.stderr and "repository root" in result.stderr,
+            "escape diagnostic names the containment rule",
+            failures,
+        )
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR)],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 2, "omitted --plans-dir fails with usage", failures)
+        result = subprocess.run(
+            [sys.executable, str(PLAN_STATE), "--plans-dir", "does/not/exist",
+             "validate"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 2, "nonexistent directory exits 2", failures)
+        check(
+            snapshot(root) == before_root or (alternate / "README.md").exists(),
+            "failed invocations write nothing",
+            failures,
+        )
+
+    for failure in failures:
+        print(f"  {failure}")
+    return not failures
 
 
 def test_plan_state_cli() -> bool:
@@ -709,6 +805,11 @@ def main() -> int:
         print("PASS plan-state-cli")
     else:
         print("FAIL plan-state-cli")
+        failures += 1
+    if test_selected_directory_containment():
+        print("PASS selected-directory-containment")
+    else:
+        print("FAIL selected-directory-containment")
         failures += 1
     if failures:
         print(f"{failures} generator fixture test(s) failed")

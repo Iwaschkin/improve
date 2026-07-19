@@ -36,13 +36,15 @@ A worktree remains the recommended default in every profile — it keeps the adv
 
 ---
 
+Throughout this file, `<selected-plans-dir>` is the plans directory resolved by the selection contract in `SKILL.md` Phase 4 (default `docs/dev/plans`). Substitute the literal selected path everywhere — a session never mixes directories.
+
 ## `execute <plan>` — dispatch and review
 
 ### Preconditions (check all before dispatching)
 
 - Select the execution profile (see Execution profiles above) and state it to the user.
 - The repo is a git repository (change isolation requires it). If not: stop and say so.
-- Execution eligibility comes from validated plan files, never from the generated README — a missing, stale, or hand-edited index has no effect on the decision. Run the bundled gate with the literal plan ID: `python <skill-root>/resources/plan_state.py --plans-dir docs/dev/plans check-executable IMP-NNN`. Exit 0 means eligible (TODO, every direct and transitive dependency VERIFIED); exit 3 lists every blocking dependency with its authoritative status — stop and report them; exit 2 means the backlog itself is invalid — fix the reported plan files first. After the gate passes, record EXECUTING metadata (locator, branch, base, profile) in the plan frontmatter and regenerate the index before dispatch.
+- Execution eligibility comes from validated plan files, never from the generated README — a missing, stale, or hand-edited index has no effect on the decision. Run the bundled gate with the literal plan ID: `python <skill-root>/resources/plan_state.py --plans-dir <selected-plans-dir> check-executable IMP-NNN`. Exit 0 means eligible (TODO, every direct and transitive dependency VERIFIED); exit 3 lists every blocking dependency with its authoritative status — stop and report them; exit 2 means the backlog itself is invalid — fix the reported plan files first. After the gate passes, record EXECUTING metadata (locator, branch, base, profile) in the plan frontmatter and regenerate the index before dispatch.
 - Run the plan's drift check yourself. If in-scope files changed since `Planned at`, reconcile the plan first (see below) — don't hand a stale plan to an executor.
 - Execution runs from a committed baseline. If `git status --porcelain=v1` prints anything, do not stop unconditionally — present the safe choices and let the user pick:
   - execute committed `HEAD`, stating plainly that uncommitted changes are excluded from execution;
@@ -62,10 +64,10 @@ A worktree remains the recommended default in every profile — it keeps the adv
 
 Prepare a workspace-local disposable worktree before dispatching:
 
-1. Default root: `<repo root>/docs/dev/plans/.worktrees/`.
-1. Default path: `<repo root>/docs/dev/plans/.worktrees/<plan-id>-<slug>/`, where `<plan-id>-<slug>` comes from the plan filename without `.md`.
-1. For nested repos or multi-repo workspaces, still prefer the selected repo's own `<repo root>/docs/dev/plans/.worktrees/`. If a host API forces a workspace-level worktree root, prefix the folder name with the sanitized repo directory name.
-1. When creating the default worktree location, ensure `<repo root>/docs/dev/plans/.gitignore` contains a `.worktrees/` entry. Preserve existing lines and do not add duplicates. This ignore-metadata write may happen after the baseline is recorded and does not invalidate the committed-baseline decision — the executor runs from committed `HEAD` in the worktree either way. Do not edit the target repo's root `.gitignore` unless `docs/dev/plans/.gitignore` is impossible for that repo.
+1. Default root: `<repo root>/<selected-plans-dir>/.worktrees/`.
+1. Default path: `<repo root>/<selected-plans-dir>/.worktrees/<plan-id>-<slug>/`, where `<plan-id>-<slug>` comes from the plan filename without `.md`.
+1. For nested repos or multi-repo workspaces, still prefer the selected repo's own `<repo root>/<selected-plans-dir>/.worktrees/`. If a host API forces a workspace-level worktree root, prefix the folder name with the sanitized repo directory name.
+1. When creating the default worktree location, ensure `<repo root>/<selected-plans-dir>/.gitignore` contains a `.worktrees/` entry. Preserve existing lines and do not add duplicates. This ignore-metadata write may happen after the baseline is recorded and does not invalidate the committed-baseline decision — the executor runs from committed `HEAD` in the worktree either way. Do not edit the target repo's root `.gitignore` unless `<selected-plans-dir>/.gitignore` is impossible for that repo.
 1. If the host's worktree-isolation API lets the advisor specify a path, use the path above. If it does not, create the git worktree at that path yourself and launch the executor rooted there. Do not silently accept a sibling path outside the workspace.
 1. If the computed path would be outside the current workspace, or the advisor cannot create/use a workspace-local worktree, stop and hand the plan over for manual execution.
 
@@ -92,7 +94,7 @@ The executor prompt must contain:
 > Commit your work in the worktree following the plan's git workflow section.
 > The plan file and the generated plan index are reviewer-owned control-plane
 > records: do not modify the plan's frontmatter, its Status section, or
-> `docs/dev/plans/README.md` — your reviewer records lifecycle transitions
+> the selected plans directory's generated `README.md` — your reviewer records lifecycle transitions
 > and regenerates the index from your evidence. Before reporting, audit every
 > claim in your report against an actual tool result from this session — only
 > report what you can point to evidence for; if a verification failed or was
@@ -159,19 +161,19 @@ Cleanup applies only when the recorded `execution_locator` is a local worktree m
 - Keep REVIEWED worktrees until the user has either merged, abandoned, or superseded the reviewed branch. They are review artifacts, not build caches.
 - After a plan reaches VERIFIED, remove the executor worktree with `git worktree remove <path>` and prune stale metadata with `git worktree prune`. Delete the executor branch only after confirming the reviewed commit is reachable from the target branch.
 - For BLOCKED, ABANDONED, or SUPERSEDED plans, keep the worktree path and branch in the index until the user confirms no further inspection is needed. Then remove the worktree and branch as above.
-- During `reconcile`, if `docs/dev/plans/.worktrees/` contains a worktree with no matching EXECUTING, REVIEWED, BLOCKED, ABANDONED, or SUPERSEDED plan row, report it as an orphan and ask before deleting it.
+- During `reconcile`, if `<selected-plans-dir>/.worktrees/` contains a worktree with no matching EXECUTING, REVIEWED, BLOCKED, ABANDONED, or SUPERSEDED plan row, report it as an orphan and ask before deleting it.
 
 ---
 
-## `reconcile` — keep `docs/dev/plans/` alive
+## `reconcile` — keep the selected plans directory alive
 
-Process what happened since the last session. Read `docs/dev/plans/README.md` and every plan file, then per status:
+Process what happened since the last session. Re-run the directory selection contract from `SKILL.md` Phase 4 (stop on ambiguity — never silently switch backlogs), then read the selected directory's generated `README.md` and every plan file, then per status:
 
 - **REVIEWED** — the executor's diff was approved but the implementation is not known to be on the target branch. Check whether the reviewed commit is reachable from the target branch. If yes, mark MERGED; otherwise leave REVIEWED and report the unmerged branch/worktree.
 - **MERGED** — the reviewed work is reachable from the target branch. Run the plan's acceptance checks against the target branch when permitted; if they pass, mark VERIFIED.
 - **VERIFIED** — spot-check that the done criteria still hold on the current target branch (cheap ones only). Don't delete plan files — they're the record.
 - **BLOCKED** — read the reason. Investigate the underlying obstacle in the codebase. Either rewrite the plan around it (new number if the approach changed fundamentally, in-place refresh otherwise) or mark REJECTED with one line of rationale.
-- **EXECUTING** (stale) — flag it to the user; an executor probably died mid-run. Check the default `docs/dev/plans/.worktrees/` location for a stale executor worktree if one exists.
+- **EXECUTING** (stale) — flag it to the user; an executor probably died mid-run. Check the selected directory's `.worktrees/` location for a stale executor worktree if one exists.
 - **ABANDONED** / **SUPERSEDED** — preserve the plan as history; do not execute it unless it is refreshed into a new TODO plan.
 - **TODO** — run the drift check. If drifted: re-verify the finding still exists (it may have been fixed in passing), then refresh the "Current state" excerpts and `Planned at` SHA. If the finding is gone, mark REJECTED ("fixed independently").
 

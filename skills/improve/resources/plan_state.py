@@ -631,6 +631,36 @@ def collect_plans(
 
 
 
+def resolve_plans_dir(supplied: str) -> tuple[Path | None, str | None]:
+    """Resolve the selected plans directory inside the repository root.
+
+    Selection policy (default vs `advisor-plans`, ambiguity handling) belongs
+    to the skill workflow; helpers only validate an explicitly supplied
+    directory and refuse to operate outside the current repository root.
+    Returns (resolved_path, None) or (None, error_message).
+    """
+    root = Path.cwd().resolve()
+    raw = Path(supplied)
+    resolved = (raw if raw.is_absolute() else root / raw).resolve()
+    if not resolved.is_relative_to(root):
+        return None, (
+            f"selected plans directory {supplied!r} resolves outside the "
+            f"repository root {root}"
+        )
+    if not resolved.is_dir():
+        return None, f"selected plans directory not found: {supplied}"
+    return resolved, None
+
+
+def plans_dir_display(plans_dir: Path) -> str:
+    """Repository-relative forward-slash form for reports and logs."""
+    root = Path.cwd().resolve()
+    try:
+        return plans_dir.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return plans_dir.as_posix()
+
+
 def transitive_dependencies(
     plan_id: str, by_id: dict[str, dict[str, PlanValue]]
 ) -> list[str]:
@@ -693,9 +723,9 @@ def main() -> int:
     check.add_argument("plan_id", help="plan ID, e.g. IMP-003")
     args = parser.parse_args()
 
-    plans_dir = Path(args.plans_dir)
-    if not plans_dir.is_dir():
-        print(f"ERROR plans directory not found: {plans_dir}", file=sys.stderr)
+    plans_dir, problem = resolve_plans_dir(args.plans_dir)
+    if plans_dir is None:
+        print(f"ERROR {problem}", file=sys.stderr)
         return 2
     rows, errors = collect_plans(plans_dir)
     load_rejections(plans_dir, errors)
@@ -706,7 +736,7 @@ def main() -> int:
         return 2
 
     if args.command == "validate":
-        print(f"valid: {len(rows)} plan(s) in {plans_dir}")
+        print(f"valid: {len(rows)} plan(s) in {plans_dir_display(plans_dir)}")
         return 0
 
     code, messages = check_executable(rows, args.plan_id)

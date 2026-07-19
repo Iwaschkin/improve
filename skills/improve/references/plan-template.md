@@ -8,7 +8,7 @@ Three properties make a plan executable by a weaker model:
 2. **Verification gates** — every step ends with a command and its expected result. The executor never has to *judge* whether it succeeded.
 3. **Hard boundaries and escape hatches** — explicit out-of-scope list, and "STOP and report" conditions instead of letting the model improvise when reality doesn't match the plan.
 
-File naming: `docs/dev/plans/NNN-short-slug.md`, numbered in recommended execution order.
+File naming: `<selected-plans-dir>/NNN-short-slug.md` (default `docs/dev/plans/`; the advisor resolves the selected directory once per the contract in `SKILL.md`), numbered in recommended execution order.
 
 ---
 
@@ -71,7 +71,7 @@ The fields below mirror the YAML frontmatter for human readers. The YAML frontma
 - **Priority**: P1 | P2 | P3
 - **Effort**: S | M | L
 - **Risk**: LOW | MED | HIGH
-- **Depends on**: docs/dev/plans/NNN-*.md (or "none")
+- **Depends on**: <selected-plans-dir>/NNN-*.md (or "none")
 - **Category**: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
 - **Planned at**: commit `<full 40-character SHA>`, <YYYY-MM-DD>
 - **Working tree clean**: true | false (automatic `execute` requires true)
@@ -223,7 +223,7 @@ For the human/agent who owns this code after the change lands:
 
 ---
 
-## Index file: `docs/dev/plans/README.md`
+## Index file: `<selected-plans-dir>/README.md`
 
 Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper requires Python 3.10+: find an interpreter with `python3 --version` where that name is conventional, otherwise `python --version`, and accept only 3.10 or newer. Invoke the helper by the path of the currently loaded skill's `resources/` directory — never a guessed global install path. If no compatible interpreter or helper path is available, leave the plan files as they are and report that index generation is pending; the index never blocks the implementation.
 

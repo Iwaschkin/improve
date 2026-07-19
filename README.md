@@ -106,7 +106,7 @@ Picking #1 produced [this plan](./examples/001-extract-shadow-config-resolution.
 
 **Prioritize.** Findings land in a table ordered by leverage (impact ÷ effort, weighted by confidence). You pick what becomes plans.
 
-**Plan.** One file per selected finding, written into `docs/dev/plans/` with an index, priority order, and dependency graph.
+**Plan.** One file per selected finding, written into `docs/dev/plans/` with an index, priority order, and dependency graph. If that directory already belongs to another system, the skill selects `docs/dev/advisor-plans/` instead — deterministically, on every host — and every later operation (execution worktrees, reconciliation, issues, cleanup, the bundled helpers) uses that same directory; the two are never mixed, and an ambiguous double backlog stops for your decision.
 
 ## What makes the plans executable
 
