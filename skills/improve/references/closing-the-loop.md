@@ -6,16 +6,52 @@ The founding rule survives unchanged: **the advisor never edits source code.** I
 
 ---
 
+## Execution profiles
+
+Every `execute` run happens under one of three profiles. The profile governs how repository-controlled commands (install, build, test, lint, framework CLIs, package scripts) may run; it never weakens the write boundary — the advisor still writes nothing outside the plans directory, and only the dispatched executor edits code.
+
+Three distinct concerns, named precisely — do not conflate them:
+
+- **Change isolation** — a worktree, branch, or recorded clean diff boundary that keeps the executor's edits reviewable and off the user's branch.
+- **Process isolation** — OS/container/VM restrictions on filesystem, network, credentials, services, and subprocesses. A git worktree provides none of this.
+- **Reviewer separation** — the advisor does not author the executor's implementation.
+
+| Profile | When | Repository-code commands |
+| --- | --- | --- |
+| **trusted-local** | The user owns or explicitly trusts the repository | Ordinary build/test/typecheck/lint commands run under the host's normal permission policy — no extra confirmation invented by this skill |
+| **strict** | External, unfamiliar, security-sensitive, or explicitly untrusted work | Only inside an enforceable sandbox/container/VM boundary; without one, the executor edits files only and reports verification as skipped |
+| **manual** | Required capabilities or approvals are absent | No automatic execution — hand the plan over |
+
+Selecting a profile:
+
+- Trust is never inferred from the repository being open in the current workspace. It comes from an explicit user statement, an invocation modifier, or a documented default the user has configured.
+- With no signal: **strict** for external repositories; **trusted-local** only when the user has identified the project as their own.
+- Record the selected profile and the *actual* enforcement in the executor report and verdict. Never describe a prompt-only instruction as a sandbox.
+
+High-risk effects require strict handling or explicit per-run authorization in **every** profile — repository ownership does not make them safe: unfamiliar dependency installation and package lifecycle scripts; database/schema migrations; deployment, release, infrastructure, or production commands; commands using credentials, external services, or broad network access; destructive filesystem/Git operations or elevated privileges; code copied from or controlled by an untrusted source.
+
+Invariant boundaries in all profiles: never reproduce secret values; never push, merge, deploy, release, run destructive Git/filesystem operations, migrate databases, touch production services, or transfer data across providers without explicit authorization.
+
+A worktree remains the recommended default in every profile — it keeps the advisor/executor boundary reviewable as a diff rather than merely asserted. Trusted-local only removes it as a hard blocker for a single sequential executor when the host cannot provide one; the execution base and diff are still recorded.
+
+---
+
 ## `execute <plan>` — dispatch and review
 
 ### Preconditions (check all before dispatching)
 
-- The repo is a git repository (worktree isolation requires it). If not: stop and say so.
+- Select the execution profile (see Execution profiles above) and state it to the user.
+- The repo is a git repository (change isolation requires it). If not: stop and say so.
 - The plan file exists and its dependencies show VERIFIED in `docs/dev/plans/README.md`. If not: stop, name the missing dependency.
 - Run the plan's drift check yourself. If in-scope files changed since `Planned at`, reconcile the plan first (see below) — don't hand a stale plan to an executor.
-- Automatic execution requires a clean baseline: `git status --porcelain=v1` must print nothing in the target repo. If the tree is dirty, stop and ask the user to commit, stash, or discard those changes before execution.
+- Execution runs from a committed baseline. If `git status --porcelain=v1` prints anything, do not stop unconditionally — present the safe choices and let the user pick:
+  - execute committed `HEAD`, stating plainly that uncommitted changes are excluded from execution;
+  - commit the relevant baseline first, then execute;
+  - use an already isolated checkout whose base can be recorded; or
+  - fall back to manual handoff.
+
+  Never stash, discard, or commit the user's changes yourself. A plan written from a dirty tree stays non-automatic until its relevant baseline is committed or the user explicitly chooses committed-`HEAD` execution knowing local changes are absent.
 - Record the execution base before creating or dispatching the worktree: `EXECUTION_BASE_SHA=$(git rev-parse HEAD)`. Use the full 40-character SHA in every review command; do not reconstruct the base later with a merge-base guess.
-- Decide the execution environment before dispatch. A git worktree isolates Git files, not processes or credentials. If a restricted container/VM sandbox is unavailable, the executor may edit files and produce a diff, but repository-code commands (install, build, test, lint, framework CLIs, package scripts) require explicit user confirmation for this execution.
 
 ### Dispatch
 
@@ -24,7 +60,7 @@ Prepare a workspace-local disposable worktree before dispatching:
 1. Default root: `<repo root>/docs/dev/plans/.worktrees/`.
 1. Default path: `<repo root>/docs/dev/plans/.worktrees/<plan-id>-<slug>/`, where `<plan-id>-<slug>` comes from the plan filename without `.md`.
 1. For nested repos or multi-repo workspaces, still prefer the selected repo's own `<repo root>/docs/dev/plans/.worktrees/`. If a host API forces a workspace-level worktree root, prefix the folder name with the sanitized repo directory name.
-1. Before dispatch, create or maintain `<repo root>/docs/dev/plans/.gitignore` with a `.worktrees/` entry. Preserve existing lines and do not add duplicates. Do not edit the target repo's root `.gitignore` unless `docs/dev/plans/.gitignore` is impossible for that repo.
+1. When creating the default worktree location, ensure `<repo root>/docs/dev/plans/.gitignore` contains a `.worktrees/` entry. Preserve existing lines and do not add duplicates. This ignore-metadata write may happen after the baseline is recorded and does not invalidate the committed-baseline decision — the executor runs from committed `HEAD` in the worktree either way. Do not edit the target repo's root `.gitignore` unless `docs/dev/plans/.gitignore` is impossible for that repo.
 1. If the host's worktree-isolation API lets the advisor specify a path, use the path above. If it does not, create the git worktree at that path yourself and launch the executor rooted there. Do not silently accept a sibling path outside the workspace.
 1. If the computed path would be outside the current workspace, or the advisor cannot create/use a workspace-local worktree, stop and hand the plan over for manual execution.
 
@@ -33,7 +69,7 @@ Dispatch exactly one executor in that worktree:
 - Preferred shape: spawn one `general-purpose` subagent with `isolation: "worktree"`. Executor model: default `sonnet`; use what the user named if they named one (`execute 003 haiku`).
 - Fallback shape: if the host cannot spawn worktree-isolated subagents, run a headless coding CLI non-interactively from the prepared worktree. Write the full dispatch prompt to a temp file, run the CLI with that prompt, and capture stdout as the executor report. Any one-shot coding CLI works if it can operate from the worktree, for example `claude -p`, `codex exec`, or `t2code exec`. For REVISE, re-invoke the CLI in the same worktree with the feedback appended; headless CLIs are stateless across invocations, so restate the plan context or reference the committed work.
 
-The headless CLI fallback is not equivalent to sandboxed execution. Without a restricted sandbox or explicit user confirmation, the executor prompt must override the plan's verification steps: edit files only, do not run repository-code commands, and report verification as skipped because execution was not permitted.
+The headless CLI fallback is not equivalent to sandboxed execution. Under **strict** without an enforceable sandbox, the executor prompt must override the plan's verification steps: edit files only, do not run repository-code commands, and report verification as skipped because execution was not permitted. Under **trusted-local**, the executor runs the plan's verification commands subject to the host's permission policy, still excluding the high-risk effects listed under Execution profiles.
 
 The executor prompt must contain:
 
@@ -41,8 +77,8 @@ The executor prompt must contain:
 1. The executor preamble:
 
 > You are the executor for the implementation plan below. Follow it step by
-> step. Run only the verification commands permitted by the execution
-> environment and confirm the expected result before moving on. If repository
+> step. Run only the verification commands permitted by the selected execution
+> profile and confirm the expected result before moving on. If repository
 > code execution is not permitted, skip those commands and report that they
 > were not run. Touch only the files listed as in scope. If any STOP condition
 > occurs, stop immediately and report. Do not improvise around obstacles.
@@ -62,7 +98,8 @@ WORKTREE PATH: <absolute or workspace-relative path>
 BRANCH: <branch name or detached HEAD>
 EXECUTION BASE SHA: <full 40-character SHA recorded before dispatch>
 EXECUTOR HEAD SHA: <full 40-character SHA after execution>
-VERIFICATION ENVIRONMENT: restricted sandbox | user-confirmed normal account | not run
+EXECUTION PROFILE: trusted-local | strict | manual
+VERIFICATION ENVIRONMENT: restricted sandbox | host approval policy | user-confirmed normal account | not run
 STEPS: per step — done/skipped + verification command result
 STOPPED BECAUSE: (only if STOPPED) which STOP condition, what was observed
 FILES CHANGED: list
@@ -83,7 +120,7 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 4. **Read any staged or unstaged diff.** If status is not clean, inspect `git diff` and `git diff --cached` as part of the review. A clean working tree is not required for review, but unreviewed uncommitted changes are a review failure.
 5. **Audit the new tests.** Executors game criteria — a test that asserts nothing meaningful passes `pnpm test` and proves nothing. Read what the tests assert before running anything.
 6. **Record the reviewed commit** with `git -C <WORKTREE PATH from the executor report> rev-parse HEAD` after the diff and tests pass review. This is the commit the index records as REVIEWED.
-7. **Re-run every done criterion** only after the diff and tests have been reviewed, and only in a restricted sandbox or after explicit user confirmation for this execution. Don't trust the executor's report — verify when execution is permitted. If execution is not permitted, the result can be REVIEWED but not MERGED or VERIFIED.
+7. **Re-run every done criterion** only after the diff and tests have been reviewed, and only as the selected execution profile permits — under the host's normal policy for trusted-local, only inside the sandbox boundary for strict. Don't trust the executor's report — verify when execution is permitted. If execution is not permitted, the result can be REVIEWED but not MERGED or VERIFIED.
 
 ### Verdict
 
@@ -95,9 +132,9 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 | **REVISE** | Fixable gaps | SendMessage to the same executor with specific, actionable feedback ("criterion 3 fails: X; the error handling in `api.ts:90` swallows the error — use the Result pattern per the plan"). **Max 2 revision rounds**, then BLOCK. |
 | **BLOCK** | STOP condition hit, scope violated unrecoverably, or revisions exhausted | Mark BLOCKED in the index with the reason. Refine or rewrite the plan with what was learned. Tell the user what happened and what changed in the plan. |
 
-Every verdict report must include the executor's worktree path, branch, execution base SHA, executor HEAD SHA, reviewed commit, and verification environment, even when the executor stopped or the review blocks the result.
+Every verdict report must include the executor's worktree path, branch, execution base SHA, executor HEAD SHA, reviewed commit, execution profile, and verification environment, even when the executor stopped or the review blocks the result.
 
-Running verification commands inside the executor's worktree is not automatically safe. A git worktree isolates the user's working tree, not the host, so commands run with the available user privileges (network, env, credentials, home directory, local services). Use a restricted container/VM when available; otherwise ask for explicit user confirmation before any repository-code execution.
+Running verification commands inside the executor's worktree is not automatically safe. A git worktree isolates the user's working tree, not the host, so commands run with the available user privileges (network, env, credentials, home directory, local services). That is why the profile, not the worktree, governs execution: strict requires an enforceable container/VM boundary, trusted-local defers to the host's permission policy, and the high-risk effects listed under Execution profiles need explicit authorization everywhere.
 
 ### Cleanup
 

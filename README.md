@@ -28,7 +28,9 @@ Audit and planning need an Agent Skills host with repository file access. `execu
 | Git | Recommended | Required | Required |
 | Parallel subagents | Optional | Optional | Recommended |
 | Coding CLI | No | No | Optional |
-| Secure sandbox | No | No | Strongly recommended |
+| Secure sandbox | No | No | Required for the strict profile |
+
+Execution runs under a **profile**: `trusted-local` for repos you own (ordinary tests and builds run under your host's normal permission policy), `strict` for unfamiliar or sensitive repos (repository code runs only inside an enforceable sandbox), or `manual` (no automatic execution). High-risk effects — installs with lifecycle scripts, migrations, deployments, credentialed network access — need explicit authorization in every profile. Worktrees stay the default change isolation everywhere; the profile only decides how commands run.
 
 ## Usage
 
@@ -53,7 +55,7 @@ A typical first run, start to finish:
 1. Open your agent in the repo and run `/improve` (or `/improve quick` to keep it cheap).
 2. It maps the repo, audits it, and comes back with a findings table. Reply with the ones you want planned — "plan 1, 3 and 5".
 3. Plans land in `docs/dev/plans/` — one file each, plus an index with the recommended order. Read them; they're meant to be reviewed.
-4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews `EXECUTION_BASE_SHA..HEAD` before running repository code, and reports back with the worktree path, branch, reviewed commit, verification environment, and verdict. Merging stays up to you.
+4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews `EXECUTION_BASE_SHA..HEAD` before running repository code, and reports back with the worktree path, branch, reviewed commit, execution profile, verification environment, and verdict. Merging stays up to you.
 5. Next session, run `/improve reconcile` to clean up the backlog: verify what landed, refresh what drifted, unblock what got stuck.
 
 Before a PR, `/improve branch` does the same thing scoped to what your branch changes, including committed diffs plus staged, unstaged, and untracked files from `git status --porcelain=v1`.
@@ -107,14 +109,14 @@ Each plan also stamps the git commit it was written against, so executors run a 
 
 Plans aren't fire-and-forget:
 
-- **`execute <plan>`** dispatches a cheaper executor in an ignored workspace-local disposable git worktree. The executor can be a worktree-isolated subagent or, when the host cannot spawn one, a headless coding CLI run from the prepared worktree. Automatic execution requires a clean committed baseline and an execution environment decision: restricted sandbox, explicit user-confirmed normal account, or no repository-code execution. The advisor checks scope, reads committed and uncommitted diffs, audits tests, then re-runs permitted done criteria. Approval marks the plan REVIEWED; MERGED and VERIFIED happen only after reconciliation on the target branch.
+- **`execute <plan>`** dispatches a cheaper executor in an ignored workspace-local disposable git worktree. The executor can be a worktree-isolated subagent or, when the host cannot spawn one, a headless coding CLI run from the prepared worktree. Automatic execution requires a committed baseline (a dirty tree gets explicit safe choices, never an automatic stash) and a selected execution profile: trusted-local, strict, or manual. The advisor checks scope, reads committed and uncommitted diffs, audits tests, then re-runs done criteria as the profile permits. Approval marks the plan REVIEWED; MERGED and VERIFIED happen only after reconciliation on the target branch.
 - **`reconcile`** processes what happened since: checks REVIEWED work for merge reachability, verifies MERGED work on the target branch, investigates BLOCKED plans and rewrites around obstacles, refreshes drifted TODO plans, and retires findings that got fixed independently.
 - **`--issues`** publishes plans as GitHub issues — same self-contained body, so any agent or human can pick them up where work already lives.
 
 ## Hard rules
 
 - Never modifies source code itself. The only writes go to `docs/dev/plans/`; executor worktrees are disposable and ignored under `docs/dev/plans/.worktrees/` by default, executors edit only there, and merging is always yours.
-- Never runs commands that mutate your working tree; repository-code commands require a restricted sandbox or explicit user confirmation.
+- Never runs commands that mutate your working tree; repository-code commands run under the selected execution profile — your host's normal policy for trusted-local repos, an enforceable sandbox for strict, and explicit authorization for high-risk effects everywhere.
 - Never reproduces secret values. Locations and credential types only, rotation always recommended.
 - Asked to implement? It declines and points at the plan (or offers `execute`).
 

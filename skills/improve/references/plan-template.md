@@ -66,6 +66,7 @@ The fields below mirror the YAML frontmatter for human readers. The YAML frontma
 - **Category**: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
 - **Planned at**: commit `<full 40-character SHA>`, <YYYY-MM-DD>
 - **Working tree clean**: true | false (automatic `execute` requires true)
+- **Execution profile**: trusted-local | strict | manual (record when execution starts; omit until then)
 - **Execution base**: `<full 40-character SHA>` (set when execution starts; omit until then)
 - **Reviewed commit**: `<full 40-character SHA>` (set when reviewer approves; omit until then)
 - **Merged commit**: `<full 40-character SHA>` (set when reachable from target branch; omit until then)
@@ -103,7 +104,7 @@ The facts the executor needs, inlined — never "as discussed" or "see audit":
 | Tests     | `pnpm test -- <filter>`  | package script / CI / not run | EXECUTES_REPOSITORY_CODE | all pass |
 | Lint      | `pnpm lint`              | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0 |
 
-Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class should be one of: STATIC_READ, GIT_READ, EXECUTES_REPOSITORY_CODE, MAY_WRITE_CACHE, NETWORK_ACCESS, PACKAGE_INSTALL, HOST_MUTATION.
+Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class should be one of: STATIC_READ, GIT_READ, EXECUTES_REPOSITORY_CODE, MAY_WRITE_CACHE, NETWORK_ACCESS, PACKAGE_INSTALL, HOST_MUTATION. The class records what a command does, not permission: whether it may actually run is decided at execution time by the selected execution profile and the host's permission policy.
 
 ## Suggested executor toolkit
 
