@@ -34,6 +34,8 @@ Audit and planning need an Agent Skills host with repository file access. `execu
 
 Execution runs under a **profile**: `trusted-local` for repos you own (ordinary tests and builds run under your host's normal permission policy), `strict` for unfamiliar or sensitive repos (repository code runs only inside an enforceable sandbox), or `manual` (no automatic execution). High-risk effects — installs with lifecycle scripts, migrations, deployments, credentialed network access — need explicit authorization in every profile. Worktrees stay the default change isolation everywhere; the profile only decides how commands run.
 
+Per-surface support is evidence-bound: **VERIFIED** means current passing runs recorded in the [conformance checklist](docs/dev/conformance.md); **DOCUMENTED** means the host's documentation supports it but no behavioral run is recorded yet; **UNSUPPORTED** means a required capability is absent. Today every target surface — Claude Code CLI, Cursor, Codex CLI, GitHub Copilot (VS Code and CLI) — is DOCUMENTED: mapped in [host-compatibility.md](skills/improve/references/host-compatibility.md), with no recorded behavioral run claiming more.
+
 ## Usage
 
 Invocation differs by host — the `/improve` forms below are the Claude Code spelling; substitute your host's:
