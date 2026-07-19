@@ -16,7 +16,7 @@ other agent     →  implements, tests, ships    (cheap model, executes)
 npx skills add Iwaschkin/improve
 ```
 
-Works in any agent that supports [Agent Skills](https://agentskills.io) format. This fork is maintained at `Iwaschkin/improve` and is based on upstream `shadcn/improve`; the plans it writes are plain markdown, so any agent (or human) can pick them up.
+Audit and planning are portable across conforming [Agent Skills](https://agentskills.io) hosts with repository access. Automatic execution is supported only on documented host surfaces that provide a writable executor and an enforceable execution boundary appropriate to the selected profile — [skills/improve/references/host-compatibility.md](skills/improve/references/host-compatibility.md) maps each host. This fork is maintained at `Iwaschkin/improve` and is based on upstream `shadcn/improve`; the plans it writes are plain markdown, so any agent (or human) can pick them up.
 
 ## Compatibility
 
@@ -33,6 +33,17 @@ Audit and planning need an Agent Skills host with repository file access. `execu
 Execution runs under a **profile**: `trusted-local` for repos you own (ordinary tests and builds run under your host's normal permission policy), `strict` for unfamiliar or sensitive repos (repository code runs only inside an enforceable sandbox), or `manual` (no automatic execution). High-risk effects — installs with lifecycle scripts, migrations, deployments, credentialed network access — need explicit authorization in every profile. Worktrees stay the default change isolation everywhere; the profile only decides how commands run.
 
 ## Usage
+
+Invocation differs by host — the `/improve` forms below are the Claude Code spelling; substitute your host's:
+
+| Host | Invocation |
+| --- | --- |
+| Claude Code | `/improve ...` slash command |
+| Codex (CLI/IDE) | `$improve` mention, `/skills`, or natural language |
+| GitHub Copilot (VS Code, CLI, cloud) | natural language; `/skills` in VS Code chat, `copilot skill` in the CLI |
+| Cursor | `/improve` or automatic discovery from the task description |
+
+Natural language matching the skill's description is the portable fallback on every conforming host.
 
 ```text
 /improve                        full audit → prioritized findings → plans
@@ -87,7 +98,7 @@ Picking #1 produced [this plan](./examples/001-extract-shadow-config-resolution.
 
 **Recon.** Maps the repo: stack, conventions, and the exact build/test/lint commands, including where each command came from and whether it executes repository code. These become verification gates in every plan, but the plan distinguishes commands that were discovered from commands that were actually run. It also ingests intent and design docs when present — ADRs (`docs/adr/`), PRDs, `CONTEXT.md`, `DESIGN.md`, `PRODUCT.md` — so decided tradeoffs aren't re-flagged as findings, direction suggestions stay grounded in stated product intent, and plans speak the repo's own vocabulary. Composes with any repo that already maintains these docs.
 
-**Audit.** Fans out parallel subagents across nine categories: correctness, security, performance, test coverage, tech debt, dependencies & migrations, DX, docs, and direction (feature suggestions — every one must cite evidence from the repo itself, no generic idea-slop). Every finding carries `file:line` evidence, impact, effort, and confidence.
+**Audit.** Fans out parallel read-only workers across nine categories when the host supports delegation — and audits sequentially itself when it doesn't: correctness, security, performance, test coverage, tech debt, dependencies & migrations, DX, docs, and direction (feature suggestions — every one must cite evidence from the repo itself, no generic idea-slop). Every finding carries `file:line` evidence, impact, effort, and confidence.
 
 **Vet.** Subagents over-report, so the advisor re-reads every cited location itself before showing you anything — false positives get dropped, wrong attributions get corrected, rejections get recorded.
 

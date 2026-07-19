@@ -64,10 +64,12 @@ Prepare a workspace-local disposable worktree before dispatching:
 1. If the host's worktree-isolation API lets the advisor specify a path, use the path above. If it does not, create the git worktree at that path yourself and launch the executor rooted there. Do not silently accept a sibling path outside the workspace.
 1. If the computed path would be outside the current workspace, or the advisor cannot create/use a workspace-local worktree, stop and hand the plan over for manual execution.
 
-Dispatch exactly one executor in that worktree:
+Dispatch exactly one executor in that worktree (consult the current host's section of [host-compatibility.md](host-compatibility.md) first — read only that section):
 
-- Preferred shape: spawn one `general-purpose` subagent with `isolation: "worktree"`. Executor model: default `sonnet`; use what the user named if they named one (`execute 003 haiku`).
-- Fallback shape: if the host cannot spawn worktree-isolated subagents, run a headless coding CLI non-interactively from the prepared worktree. Write the full dispatch prompt to a temp file, run the CLI with that prompt, and capture stdout as the executor report. Any one-shot coding CLI works if it can operate from the worktree, for example `claude -p`, `codex exec`, or `t2code exec`. For REVISE, re-invoke the CLI in the same worktree with the feedback appended; headless CLIs are stateless across invocations, so restate the plan context or reference the committed work.
+- Preferred shape: spawn one host-native writable executor agent isolated to the prepared worktree. Executor model: inherit the host's configured default; use what the user named if they named one (`execute 003 <model>`).
+- Fallback shape: if the host cannot spawn worktree-isolated agents, run the *same host's* headless coding CLI non-interactively from the prepared worktree. Write the full dispatch prompt to a temp file, run the CLI with that prompt, and capture stdout as the executor report. For REVISE, re-invoke the CLI in the same worktree with the feedback appended; headless CLIs are stateless across invocations, so restate the plan context or reference the committed work.
+- **Never fall back to a different vendor's CLI silently.** Launching another provider's executor changes data routing, credentials, billing, and policy — offer it as an option and proceed only on explicit user selection.
+- The executor may also be remote (a cloud agent or delegated task). Then the execution locator is the host's task identifier, branch, or PR URL, and review uses the host's native diff and commit identity for the same comparisons the local commands below express.
 
 The headless CLI fallback is not equivalent to sandboxed execution. Under **strict** without an enforceable sandbox, the executor prompt must override the plan's verification steps: edit files only, do not run repository-code commands, and report verification as skipped because execution was not permitted. Under **trusted-local**, the executor runs the plan's verification commands subject to the host's permission policy, still excluding the high-risk effects listed under Execution profiles.
 
@@ -94,7 +96,7 @@ The executor prompt must contain:
 
 ```text
 STATUS: COMPLETE | STOPPED
-WORKTREE PATH: <absolute or workspace-relative path>
+EXECUTION LOCATOR: <local worktree path, remote task id, branch, or PR URL>
 BRANCH: <branch name or detached HEAD>
 EXECUTION BASE SHA: <full 40-character SHA recorded before dispatch>
 EXECUTOR HEAD SHA: <full 40-character SHA after execution>
@@ -114,12 +116,12 @@ Note on fresh worktrees: they share git history but not `node_modules` or build 
 
 Review like a tech lead reviewing a PR against the spec — never fix anything yourself, and read before you run: re-running the done criteria executes the executor's code (including its test files) with your privileges, so scope, diff, and tests come first:
 
-1. **Committed scope compliance**: `git -C <WORKTREE PATH from the executor report> diff --stat $EXECUTION_BASE_SHA..HEAD` against the plan's in-scope list. Any committed file outside scope fails review, full stop.
-2. **Uncommitted scope compliance**: `git -C <WORKTREE PATH from the executor report> status --porcelain=v1`, `git -C <WORKTREE PATH from the executor report> diff`, and `git -C <WORKTREE PATH from the executor report> diff --cached`. Anything staged or unstaged outside scope fails review, and any uncommitted executor work must be reviewed before a verdict.
-3. **Read the full committed diff.** Run `git -C <WORKTREE PATH from the executor report> diff $EXECUTION_BASE_SHA..HEAD`. Judge it against "Why this matters" (does it solve the actual problem?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
+1. **Committed scope compliance**: `git -C <local EXECUTION LOCATOR from the executor report> diff --stat $EXECUTION_BASE_SHA..HEAD` against the plan's in-scope list. Any committed file outside scope fails review, full stop.
+2. **Uncommitted scope compliance**: `git -C <local EXECUTION LOCATOR from the executor report> status --porcelain=v1`, `git -C <local EXECUTION LOCATOR from the executor report> diff`, and `git -C <local EXECUTION LOCATOR from the executor report> diff --cached`. Anything staged or unstaged outside scope fails review, and any uncommitted executor work must be reviewed before a verdict.
+3. **Read the full committed diff.** Run `git -C <local EXECUTION LOCATOR from the executor report> diff $EXECUTION_BASE_SHA..HEAD`. Judge it against "Why this matters" (does it solve the actual problem?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
 4. **Read any staged or unstaged diff.** If status is not clean, inspect `git diff` and `git diff --cached` as part of the review. A clean working tree is not required for review, but unreviewed uncommitted changes are a review failure.
 5. **Audit the new tests.** Executors game criteria — a test that asserts nothing meaningful passes `pnpm test` and proves nothing. Read what the tests assert before running anything.
-6. **Record the reviewed commit** with `git -C <WORKTREE PATH from the executor report> rev-parse HEAD` after the diff and tests pass review. This is the commit the index records as REVIEWED.
+6. **Record the reviewed commit** with `git -C <local EXECUTION LOCATOR from the executor report> rev-parse HEAD` after the diff and tests pass review. This is the commit the index records as REVIEWED.
 7. **Re-run every done criterion** only after the diff and tests have been reviewed, and only as the selected execution profile permits — under the host's normal policy for trusted-local, only inside the sandbox boundary for strict. Don't trust the executor's report — verify when execution is permitted. If execution is not permitted, the result can be REVIEWED but not MERGED or VERIFIED.
 
 ### Verdict
@@ -129,7 +131,7 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 | Verdict | When | Action |
 | --- | --- | --- |
 | **APPROVE** | Diff review passes, scope clean, quality holds, and any permitted criteria pass | Update the plan frontmatter to REVIEWED, then regenerate the index. Present to the user: diff summary, worktree path, branch, execution base SHA, reviewed commit, verification environment, and anything from NOTES. **Merging is the user's decision — never merge, push, or commit to their branch.** |
-| **REVISE** | Fixable gaps | SendMessage to the same executor with specific, actionable feedback ("criterion 3 fails: X; the error handling in `api.ts:90` swallows the error — use the Result pattern per the plan"). **Max 2 revision rounds**, then BLOCK. |
+| **REVISE** | Fixable gaps | Continue the same executor when the host supports continuation, with specific, actionable feedback ("criterion 3 fails: X; the error handling in `api.ts:90` swallows the error — use the Result pattern per the plan"); otherwise redispatch fresh with the full plan, the prior report, current SHAs, and the feedback. **Max 2 revision rounds**, then BLOCK. |
 | **BLOCK** | STOP condition hit, scope violated unrecoverably, or revisions exhausted | Mark BLOCKED in the index with the reason. Refine or rewrite the plan with what was learned. Tell the user what happened and what changed in the plan. |
 
 Every verdict report must include the executor's worktree path, branch, execution base SHA, executor HEAD SHA, reviewed commit, execution profile, and verification environment, even when the executor stopped or the review blocks the result.
