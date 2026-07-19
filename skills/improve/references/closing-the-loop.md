@@ -47,8 +47,8 @@ The executor prompt must contain:
 > were not run. Touch only the files listed as in scope. If any STOP condition
 > occurs, stop immediately and report. Do not improvise around obstacles.
 > Commit your work in the worktree following the plan's git workflow section.
-> One override: SKIP the plan's instruction to update `docs/dev/plans/README.md` —
-> your reviewer maintains the index. Before reporting, audit every claim in
+> One override: SKIP the plan's instruction to regenerate `docs/dev/plans/README.md` —
+> your reviewer maintains the generated index. Before reporting, audit every claim in
 > your report against an actual tool result from this session — only report
 > what you can point to evidence for; if a verification failed or was
 > skipped, say so plainly. When finished, reply with exactly the report
@@ -91,7 +91,7 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 
 | Verdict | When | Action |
 | --- | --- | --- |
-| **APPROVE** | Diff review passes, scope clean, quality holds, and any permitted criteria pass | Update index status to REVIEWED, not VERIFIED. Present to the user: diff summary, worktree path, branch, execution base SHA, reviewed commit, verification environment, and anything from NOTES. **Merging is the user's decision — never merge, push, or commit to their branch.** |
+| **APPROVE** | Diff review passes, scope clean, quality holds, and any permitted criteria pass | Update the plan frontmatter to REVIEWED, then regenerate the index. Present to the user: diff summary, worktree path, branch, execution base SHA, reviewed commit, verification environment, and anything from NOTES. **Merging is the user's decision — never merge, push, or commit to their branch.** |
 | **REVISE** | Fixable gaps | SendMessage to the same executor with specific, actionable feedback ("criterion 3 fails: X; the error handling in `api.ts:90` swallows the error — use the Result pattern per the plan"). **Max 2 revision rounds**, then BLOCK. |
 | **BLOCK** | STOP condition hit, scope violated unrecoverably, or revisions exhausted | Mark BLOCKED in the index with the reason. Refine or rewrite the plan with what was learned. Tell the user what happened and what changed in the plan. |
 

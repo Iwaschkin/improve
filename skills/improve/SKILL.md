@@ -110,7 +110,7 @@ Write each plan **for the weakest plausible executor**. That means:
 - A maintenance note (what future changes will interact with this, what to watch in review).
 - Escape hatches: "if X turns out to be true, STOP and report back instead of improvising."
 
-Finish by writing `docs/dev/plans/README.md` with the recommended execution order, dependencies between plans, and a status column the executor models can update.
+Finish by running `python scripts/generate_plan_index.py` to write `docs/dev/plans/README.md` from plan frontmatter. The index carries recommended execution order, dependencies, status, execution base, reviewed commit, and merged commit; it is generated, not hand-edited.
 
 ## Invocation variants
 
