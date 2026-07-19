@@ -130,7 +130,12 @@ Every finding, from every category and every subagent, comes back in this shape:
 - **Effort**: S (hours) / M (a day-ish) / L (multi-day) — for the *fix*, including tests.
 - **Risk**: What the fix could break; LOW/MED/HIGH plus one line why.
 - **Confidence**: HIGH (read the code, certain) / MED (strong signal, needs verification) / LOW (smell, needs investigation). LOW-confidence findings may be reported but get an "investigate" plan, not a "fix" plan.
-- **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly.
+- **Causal status** (corrective findings — anything claiming existing behavior is wrong): CONFIRMED or HYPOTHESIS. NOT-APPLICABLE is allowed only for genuinely non-corrective findings (direction, content-only docs) with one sentence saying why. An unproven cause is HYPOTHESIS and produces an investigation/characterization plan, never a fix plan. A missing-test finding identifies an unverified risk — its root-cause objective is the missing verification boundary itself, not a fabricated product bug.
+- **Observed condition** (corrective): the safe reproduction, static evidence, diagnostic, or concrete symptom actually observed.
+- **Causal chain** (CONFIRMED only): input or condition → exercised code path or contract → specific flaw → observed symptom or impact, with evidence at each non-obvious link.
+- **Correct fix layer** (corrective): the contract/module/state boundary that owns the flaw, and why the symptom surface is not sufficient.
+- **Rejected shortcuts** (corrective): the likely symptom-level responses — suppression, swallowed error, retry/sleep, special case, weakened test, shim — that would leave the cause present.
+- **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly. Never a symptom silencer without the full exception gate from `references/root-cause-discipline.md`.
 
 For dependency findings, add:
 
