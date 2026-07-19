@@ -99,6 +99,13 @@ Every verdict report must include the executor's worktree path, branch, executio
 
 Running verification commands inside the executor's worktree is not automatically safe. A git worktree isolates the user's working tree, not the host, so commands run with the available user privileges (network, env, credentials, home directory, local services). Use a restricted container/VM when available; otherwise ask for explicit user confirmation before any repository-code execution.
 
+### Cleanup
+
+- Keep REVIEWED worktrees until the user has either merged, abandoned, or superseded the reviewed branch. They are review artifacts, not build caches.
+- After a plan reaches VERIFIED, remove the executor worktree with `git worktree remove <path>` and prune stale metadata with `git worktree prune`. Delete the executor branch only after confirming the reviewed commit is reachable from the target branch.
+- For BLOCKED, ABANDONED, or SUPERSEDED plans, keep the worktree path and branch in the index until the user confirms no further inspection is needed. Then remove the worktree and branch as above.
+- During `reconcile`, if `docs/dev/plans/.worktrees/` contains a worktree with no matching EXECUTING, REVIEWED, BLOCKED, ABANDONED, or SUPERSEDED plan row, report it as an orphan and ask before deleting it.
+
 ---
 
 ## `reconcile` — keep `docs/dev/plans/` alive
