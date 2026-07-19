@@ -67,6 +67,15 @@ VERIFICATION_ENUM = {
     "not-run",
     "unknown",
 }
+INTEGRATION_METHOD_ENUM = {
+    "direct",
+    "merge",
+    "cherry-pick",
+    "squash",
+    "rebase",
+    "tree-equivalent",
+}
+TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 REQUIRED_FIELDS = (
     "id",
@@ -401,6 +410,64 @@ def validate_plan(
             )
         )
     _check_nullable_sha(data, "executor_head", filename, errors)
+    target_branch = data.get("target_branch")
+    if target_branch is not None and not _is_nonempty_str(target_branch):
+        errors.append(
+            Diagnostic(
+                filename, f"expected null or a nonempty string, got {target_branch!r}",
+                field="target_branch",
+            )
+        )
+    method = data.get("integration_method")
+    if method is not None and (
+        not isinstance(method, str) or method not in INTEGRATION_METHOD_ENUM
+    ):
+        errors.append(
+            Diagnostic(
+                filename,
+                f"expected null or one of {sorted(INTEGRATION_METHOD_ENUM)}, got {method!r}",
+                field="integration_method",
+            )
+        )
+    evidence = data.get("integration_evidence")
+    if evidence is not None:
+        if not isinstance(evidence, list) or any(
+            not _is_nonempty_str(item) for item in evidence
+        ):
+            errors.append(
+                Diagnostic(
+                    filename,
+                    "expected a list of nonempty evidence strings ([] when none)",
+                    field="integration_evidence",
+                )
+            )
+    verified_at = data.get("verified_at")
+    if verified_at is not None and (
+        not isinstance(verified_at, str) or not TIMESTAMP_RE.fullmatch(verified_at)
+    ):
+        errors.append(
+            Diagnostic(
+                filename,
+                f"expected null or a UTC timestamp YYYY-MM-DDTHH:MM:SSZ, got {verified_at!r}",
+                field="verified_at",
+            )
+        )
+    superseded_by = data.get("superseded_by")
+    if superseded_by is not None:
+        if not isinstance(superseded_by, str) or not PLAN_ID_RE.fullmatch(superseded_by):
+            errors.append(
+                Diagnostic(
+                    filename,
+                    f"expected null or a plan ID 'IMP-NNN', got {superseded_by!r}",
+                    field="superseded_by",
+                )
+            )
+        elif superseded_by == data.get("id"):
+            errors.append(
+                Diagnostic(
+                    filename, "a plan cannot supersede itself", field="superseded_by"
+                )
+            )
     verification = data.get("verification_environment")
     if verification is not None and (
         not isinstance(verification, str) or verification not in VERIFICATION_ENUM
@@ -439,7 +506,21 @@ def validate_lifecycle(
         require("executor_head", f"status {status} requires the executor head SHA")
         require("reviewed_commit", f"status {status} requires the reviewed commit")
     if status in {"MERGED", "VERIFIED"}:
-        require("merged_commit", f"status {status} requires the merged commit")
+        require(
+            "merged_commit",
+            f"status {status} requires the merged commit — the actual target-branch "
+            "commit at which the reviewed change is integrated",
+        )
+        require("target_branch", f"status {status} requires the target branch")
+        require("integration_method", f"status {status} requires the integration method")
+        require(
+            "integration_evidence",
+            f"status {status} requires nonempty integration evidence",
+        )
+    if status == "VERIFIED":
+        require("verified_at", "status VERIFIED requires the verified_at timestamp")
+    if status == "SUPERSEDED":
+        require("superseded_by", "status SUPERSEDED requires the superseding plan ID")
     if status in {"BLOCKED", "REJECTED", "ABANDONED", "SUPERSEDED"}:
         require("status_note", f"status {status} requires a one-line status_note rationale")
     if status == "VERIFIED" and data.get("verification_environment") in (
@@ -541,6 +622,17 @@ def validate_graph(
             )
             continue
         by_id[plan_id] = row
+
+    for row in rows:
+        superseded_by = row.get("superseded_by")
+        if isinstance(superseded_by, str) and superseded_by not in by_id:
+            errors.append(
+                Diagnostic(
+                    str(row.get("file")),
+                    f"superseded_by {superseded_by!r} does not resolve to any plan",
+                    field="superseded_by",
+                )
+            )
 
     for row in rows:
         plan_id = row.get("id")

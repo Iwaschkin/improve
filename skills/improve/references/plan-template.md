@@ -37,6 +37,11 @@ execution_locator: null
 executor_head: null
 reviewed_commit: null
 merged_commit: null
+target_branch: null
+integration_method: null
+integration_evidence: []
+verified_at: null
+superseded_by: null
 verification_environment: null
 status_note: null
 skill_version: null
@@ -80,7 +85,10 @@ The fields below mirror the YAML frontmatter for human readers. The YAML frontma
 - **Execution base**: `<full 40-character SHA>` (set when execution starts; omit until then)
 - **Executor head**: `<full 40-character SHA>` (set from the executor report; omit until then)
 - **Reviewed commit**: `<full 40-character SHA>` (set when reviewer approves; omit until then)
-- **Merged commit**: `<full 40-character SHA>` (set when reachable from target branch; omit until then)
+- **Merged commit**: `<full 40-character SHA>` — the actual target-branch commit at which the reviewed change is integrated, which for squash/cherry-pick/rebase differs from the reviewed commit (set during reconcile; omit until then)
+- **Target branch / Integration method**: branch plus direct | merge | cherry-pick | squash | rebase | tree-equivalent, with concise evidence in `integration_evidence` (set during reconcile; omit until then)
+- **Verified at**: UTC timestamp `YYYY-MM-DDTHH:MM:SSZ` (set when acceptance checks pass at the merged commit; omit until then)
+- **Superseded by**: IMP-NNN (SUPERSEDED plans only)
 - **Verification environment**: restricted-sandbox | host-approval-policy | user-confirmed-normal-account | not-run | unknown (set when verification runs; omit until then)
 - **Status note**: one line — required for BLOCKED / REJECTED / ABANDONED / SUPERSEDED, omit otherwise
 - **Issue**: <GitHub issue URL — only when published via `--issues`; omit otherwise>

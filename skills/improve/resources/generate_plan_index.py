@@ -50,7 +50,11 @@ EXECUTION_DETAIL_FIELDS = (
     "executor_head",
     "reviewed_commit",
     "merged_commit",
+    "target_branch",
+    "integration_method",
     "verification_environment",
+    "verified_at",
+    "superseded_by",
 )
 
 
@@ -111,8 +115,8 @@ def render_index(
                 "",
                 "## Execution & Verification Details",
                 "",
-                "| Plan | Profile | Locator | Branch | Execution base | Executor head | Reviewed commit | Merged commit | Verification |",
-                "| ---- | ------- | ------- | ------ | -------------- | ------------- | --------------- | ------------- | ------------ |",
+                "| Plan | Profile | Locator | Branch | Execution base | Executor head | Reviewed commit | Merged commit | Target branch | Method | Verification | Verified at | Superseded by |",
+                "| ---- | ------- | ------- | ------ | -------------- | ------------- | --------------- | ------------- | ------------- | ------ | ------------ | ----------- | ------------- |",
             ]
         )
         for row in detail_rows:

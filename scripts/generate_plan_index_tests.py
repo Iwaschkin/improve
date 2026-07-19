@@ -99,8 +99,17 @@ def run_plan_state(plans_dir: Path, *args: str) -> subprocess.CompletedProcess[s
     )
 
 
+INTEGRATION_FIELDS = (
+    "target_branch: main\n"
+    "integration_method: squash\n"
+    "integration_evidence:\n"
+    "  - range-diff clean against candidate squash commit\n"
+    "verified_at: 2026-07-19T12:00:00Z"
+)
+
+
 def verified_plan(number: int, dependencies: str = "dependencies: []") -> str:
-    """A VERIFIED plan carrying complete execution provenance."""
+    """A VERIFIED plan carrying complete execution and integration provenance."""
     return plan_frontmatter(
         id=f"id: IMP-{number:03d}",
         title=f"title: Test plan {number}",
@@ -113,7 +122,7 @@ def verified_plan(number: int, dependencies: str = "dependencies: []") -> str:
         issue="issue: null\nexecution_profile: trusted-local\n"
         f"execution_locator: docs/dev/plans/.worktrees/{number:03d}-test\n"
         f"executor_head: {OTHER_SHA}\n"
-        "verification_environment: host-approval-policy",
+        "verification_environment: host-approval-policy\n" + INTEGRATION_FIELDS,
     )
 
 
@@ -499,15 +508,105 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
     if name == "lifecycle-valid-reviewed":
         return {"001-test-plan.md": lifecycle_plan("REVIEWED")}, True, []
     if name == "lifecycle-valid-verified":
+        return ({"001-test-plan.md": verified_plan(1)}, True, [])
+    if name == "merged-without-evidence":
+        return (
+            {
+                "001-test-plan.md": lifecycle_plan(
+                    "MERGED",
+                    merged_commit=f"merged_commit: {OTHER_SHA}",
+                    issue="issue: null\nexecution_profile: trusted-local\n"
+                    "execution_locator: docs/dev/plans/.worktrees/001-test\n"
+                    f"executor_head: {OTHER_SHA}\n"
+                    "verification_environment: host-approval-policy\n"
+                    "target_branch: main\n"
+                    "integration_method: squash\n"
+                    "integration_evidence: []",
+                )
+            },
+            False,
+            ["integration_evidence", "MERGED requires nonempty"],
+        )
+    if name == "verified-without-timestamp":
         return (
             {
                 "001-test-plan.md": lifecycle_plan(
                     "VERIFIED",
                     merged_commit=f"merged_commit: {OTHER_SHA}",
+                    issue="issue: null\nexecution_profile: trusted-local\n"
+                    "execution_locator: docs/dev/plans/.worktrees/001-test\n"
+                    f"executor_head: {OTHER_SHA}\n"
+                    "verification_environment: host-approval-policy\n"
+                    "target_branch: main\n"
+                    "integration_method: merge\n"
+                    "integration_evidence:\n  - ancestry confirmed",
                 )
             },
-            True,
-            [],
+            False,
+            ["verified_at", "VERIFIED requires"],
+        )
+    if name == "merged-reviewed-sha-only":
+        # merged_commit must never silently be absent for a rewritten
+        # integration: MERGED without a merged_commit fails even when the
+        # reviewed commit exists.
+        return (
+            {
+                "001-test-plan.md": lifecycle_plan(
+                    "MERGED",
+                    issue="issue: null\nexecution_profile: trusted-local\n"
+                    "execution_locator: docs/dev/plans/.worktrees/001-test\n"
+                    f"executor_head: {OTHER_SHA}\n"
+                    "verification_environment: host-approval-policy\n"
+                    "target_branch: main\n"
+                    "integration_method: cherry-pick\n"
+                    "integration_evidence:\n  - git cherry mapping",
+                )
+            },
+            False,
+            ["merged_commit", "actual target-branch"],
+        )
+    if name == "invalid-integration-method":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    issue="issue: null\nintegration_method: vibes"
+                )
+            },
+            False,
+            ["integration_method", "'vibes'"],
+        )
+    if name == "superseded-missing-target":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    status="status: SUPERSEDED",
+                    issue="issue: null\nstatus_note: replaced by a redesign",
+                )
+            },
+            False,
+            ["superseded_by", "SUPERSEDED requires"],
+        )
+    if name == "superseded-self":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    status="status: SUPERSEDED",
+                    issue="issue: null\nstatus_note: replaced\nsuperseded_by: IMP-001",
+                )
+            },
+            False,
+            ["cannot supersede itself"],
+        )
+    if name == "superseded-unresolved":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    status="status: SUPERSEDED",
+                    issue="issue: null\nstatus_note: replaced\nsuperseded_by: IMP-009",
+                )
+            },
+            False,
+            ["superseded_by 'IMP-009' does not resolve"],
         )
     if name == "lifecycle-blocked-without-note":
         return (
@@ -669,7 +768,12 @@ EXTRA_INDEX_ASSERTS = {
         "trusted-local",
         OTHER_SHA,
     ],
-    "lifecycle-valid-verified": ["VERIFIED", "host-approval-policy"],
+    "lifecycle-valid-verified": [
+        "VERIFIED",
+        "host-approval-policy",
+        "| main | squash |",
+        "2026-07-19T12:00:00Z",
+    ],
     "sensitive-marker": ["(sensitive)"],
     "pipe-escaping": ["Fix a \\| b handling"],
     "issue-rendered": ["https://github.com/example/repo/issues/7"],
@@ -705,6 +809,13 @@ CASES = [
     "out-of-order-dependency",
     "lifecycle-valid-reviewed",
     "lifecycle-valid-verified",
+    "merged-without-evidence",
+    "verified-without-timestamp",
+    "merged-reviewed-sha-only",
+    "invalid-integration-method",
+    "superseded-missing-target",
+    "superseded-self",
+    "superseded-unresolved",
     "lifecycle-blocked-without-note",
     "lifecycle-reviewed-missing-head",
     "lifecycle-verified-not-run",
