@@ -98,6 +98,8 @@ docs/dev/plans/
 
 Before writing anything: record `git rev-parse HEAD` and `git status --porcelain=v1` — every plan stamps the full 40-character commit it was written against and whether the working tree was clean. Auditing may inspect a dirty tree, but automatic `execute` requires the relevant baseline to be committed; plans written from a dirty tree must say `working_tree_clean: false` and are not executable until refreshed from a clean baseline. If `docs/dev/plans/` already exists from a previous run, **reconcile, don't duplicate**: read `docs/dev/plans/README.md`, keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `docs/dev/plans/` exists for some unrelated purpose, use `docs/dev/advisor-plans/` instead and say so.
 
+Write each plan with YAML frontmatter matching the template: `id`, `title`, `status`, `priority`, `effort`, `risk`, `category`, `base_commit`, `working_tree_clean`, `created_at`, `updated_at`, `scope`, `dependencies`, execution/review/merge commit fields, `sensitive`, and `issue`. Keep the human-readable Status section in sync until the generated index owns that projection.
+
 Write each plan **for the weakest plausible executor**. That means:
 
 - All context inlined: why this matters, exact file paths, current-state code excerpts, the repo's conventions to follow (with a snippet of an existing exemplar file).

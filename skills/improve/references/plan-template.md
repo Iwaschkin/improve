@@ -15,7 +15,30 @@ File naming: `docs/dev/plans/NNN-short-slug.md`, numbered in recommended executi
 ## Template
 
 ```markdown
-# Plan NNN: <Imperative title — what will be true after this plan>
+---
+id: IMP-NNN
+title: <Imperative title — what will be true after this plan>
+status: TODO
+priority: P1 | P2 | P3
+effort: S | M | L
+risk: LOW | MED | HIGH
+category: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
+base_commit: <full 40-character SHA>
+working_tree_clean: true | false
+created_at: <YYYY-MM-DD>
+updated_at: <YYYY-MM-DD>
+scope:
+  - <in-scope path>
+dependencies: []
+execution_branch: null
+execution_base: null
+reviewed_commit: null
+merged_commit: null
+sensitive: false
+issue: null
+---
+
+## Plan NNN: <Imperative title — what will be true after this plan>
 
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command permitted by the execution environment and confirm the
@@ -32,6 +55,8 @@ File naming: `docs/dev/plans/NNN-short-slug.md`, numbered in recommended executi
 > mismatch, treat it as a STOP condition.
 
 ## Status
+
+The fields below mirror the YAML frontmatter. Update both together until the index generator owns this projection.
 
 - **Status**: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
 - **Priority**: P1 | P2 | P3

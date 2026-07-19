@@ -1,4 +1,30 @@
-# Plan 001: Extract shared shadow-config resolution used by search and view
+---
+id: IMP-001
+title: Extract shared shadow-config resolution used by search and view
+status: TODO
+priority: P2
+effort: M
+risk: MED
+category: tech-debt
+base_commit: 1994caba0
+working_tree_clean: true
+created_at: 2026-06-10
+updated_at: 2026-06-10
+scope:
+  - packages/shadcn/src/registry/config.ts
+  - packages/shadcn/src/registry/config.test.ts
+  - packages/shadcn/src/commands/search.ts
+  - packages/shadcn/src/commands/view.ts
+dependencies: []
+execution_branch: null
+execution_base: null
+reviewed_commit: null
+merged_commit: null
+sensitive: false
+issue: null
+---
+
+## Plan 001: Extract shared shadow-config resolution used by search and view
 
 Sample output. A real plan produced by `/improve` against
 [shadcn/ui](https://github.com/shadcn-ui/ui) at commit `1994caba0`
