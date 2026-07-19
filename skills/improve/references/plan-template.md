@@ -45,9 +45,14 @@ issue: null
 > expected result before moving to the next step. If repository-code execution
 > is not permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
-> improvise. When finished, update this plan's YAML frontmatter and run
-> the bundled `resources/generate_plan_index.py` helper — unless a reviewer dispatched you
-> and told you they maintain the generated index.
+> improvise. When finished, update this plan's YAML frontmatter and run the
+> bundled `resources/generate_plan_index.py` helper — unless a reviewer
+> dispatched you and told you they maintain the generated index, or you are
+> executing this plan manually without the improve skill installed. In the
+> manual case, report completion to the operator instead: the reviewer
+> refreshes metadata and regenerates the index from an installed skill or
+> repository checkout. Index generation is a projection — it never gates the
+> implementation itself.
 >
 > **Drift check (run first)**: `git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`
 > If any in-scope file changed since this plan was written, compare the
@@ -200,7 +205,9 @@ For the human/agent who owns this code after the change lands:
 
 ## Index file: `docs/dev/plans/README.md`
 
-Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, and unresolved or out-of-order dependencies fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
+Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper requires Python 3.10+: find an interpreter with `python3 --version` where that name is conventional, otherwise `python --version`, and accept only 3.10 or newer. Invoke the helper by the path of the currently loaded skill's `resources/` directory — never a guessed global install path. If no compatible interpreter or helper path is available, leave the plan files as they are and report that index generation is pending; the index never blocks the implementation.
+
+The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, and unresolved or out-of-order dependencies fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
 
 ```markdown
 # Implementation Plans

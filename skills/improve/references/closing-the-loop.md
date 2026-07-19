@@ -51,7 +51,12 @@ A worktree remains the recommended default in every profile — it keeps the adv
   - fall back to manual handoff.
 
   Never stash, discard, or commit the user's changes yourself. A plan written from a dirty tree stays non-automatic until its relevant baseline is committed or the user explicitly chooses committed-`HEAD` execution knowing local changes are absent.
-- Record the execution base before creating or dispatching the worktree: `EXECUTION_BASE_SHA=$(git rev-parse HEAD)`. Use the full 40-character SHA in every review command; do not reconstruct the base later with a merge-base guess.
+- Record the execution base before creating or dispatching the worktree, as a **literal value, not shell state**:
+  1. Run `git rev-parse HEAD` as a standalone command.
+  2. Check the output is one 40-character hexadecimal SHA.
+  3. Copy that literal value into the executor prompt, the executor report, plan metadata, and every later `git diff <full-execution-base-sha>..HEAD` comparison.
+
+  Shell state does not survive between an agent's tool calls — never rely on `$NAME`, `%NAME%`, `$env:NAME`, command substitution, or `cd` persistence to carry a value, on any platform. Placeholders like `<full-execution-base-sha>` appear only in templates; substitute the literal before running anything. Capture executor head, reviewed commit, merged commit, and target-branch SHAs the same way. Do not reconstruct the base later with a merge-base guess.
 
 ### Dispatch
 
@@ -116,9 +121,9 @@ Note on fresh worktrees: they share git history but not `node_modules` or build 
 
 Review like a tech lead reviewing a PR against the spec — never fix anything yourself, and read before you run: re-running the done criteria executes the executor's code (including its test files) with your privileges, so scope, diff, and tests come first:
 
-1. **Committed scope compliance**: `git -C <local EXECUTION LOCATOR from the executor report> diff --stat $EXECUTION_BASE_SHA..HEAD` against the plan's in-scope list. Any committed file outside scope fails review, full stop.
+1. **Committed scope compliance**: `git -C <local EXECUTION LOCATOR from the executor report> diff --stat <full-execution-base-sha>..HEAD` against the plan's in-scope list. Any committed file outside scope fails review, full stop.
 2. **Uncommitted scope compliance**: `git -C <local EXECUTION LOCATOR from the executor report> status --porcelain=v1`, `git -C <local EXECUTION LOCATOR from the executor report> diff`, and `git -C <local EXECUTION LOCATOR from the executor report> diff --cached`. Anything staged or unstaged outside scope fails review, and any uncommitted executor work must be reviewed before a verdict.
-3. **Read the full committed diff.** Run `git -C <local EXECUTION LOCATOR from the executor report> diff $EXECUTION_BASE_SHA..HEAD`. Judge it against "Why this matters" (does it solve the actual problem?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
+3. **Read the full committed diff.** Run `git -C <local EXECUTION LOCATOR from the executor report> diff <full-execution-base-sha>..HEAD`. Judge it against "Why this matters" (does it solve the actual problem?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
 4. **Read any staged or unstaged diff.** If status is not clean, inspect `git diff` and `git diff --cached` as part of the review. A clean working tree is not required for review, but unreviewed uncommitted changes are a review failure.
 5. **Audit the new tests.** Executors game criteria — a test that asserts nothing meaningful passes `pnpm test` and proves nothing. Read what the tests assert before running anything.
 6. **Record the reviewed commit** with `git -C <local EXECUTION LOCATOR from the executor report> rev-parse HEAD` after the diff and tests pass review. This is the commit the index records as REVIEWED.
@@ -170,7 +175,7 @@ Modifier on any planning invocation (`/improve --issues`, `/improve security --i
 1. Preflight: `gh auth status` succeeds and the repo has a GitHub remote. If either fails, write the plan files as normal and say why issues were skipped.
 2. Visibility check: `gh repo view --json visibility`. If the repo is **public**, warn the user that issues are publicly visible and get explicit confirmation before publishing any plan that describes a security vulnerability, credential location, or other sensitive finding.
 3. Show the list of titles about to become issues; confirm once if interactive. Non-interactive on a public repo: exclude any plan describing a security vulnerability, credential location, or other sensitive finding — the plan file is still written; record "issue skipped: sensitive content + public repo, needs interactive confirmation" in the plan frontmatter.
-4. Before creating anything, search for an existing issue by plan id and exact title, for example `gh issue list --state all --search "\"IMP-014\" OR \"<plan title>\"" --json number,title,url,state`. If an existing issue clearly corresponds to the same plan, do not create a duplicate; record that issue URL in the plan frontmatter and regenerate the index.
+4. Before creating anything, search for an existing issue by plan id and exact title using two separate invocations that need no nested or shell-specific quoting — `gh issue list --state all --search IMP-014 --json number,title,url,state`, then the same command with the plan title as the search term — and merge the results yourself. If an existing issue clearly corresponds to the same plan, do not create a duplicate; record that issue URL in the plan frontmatter and regenerate the index.
 5. Per remaining plan: `gh issue create --title "<plan title>" --body-file <plan file>`. Labels: `improve` plus the category — apply only if the labels exist or can be created without erroring; skip labels rather than fail.
 6. Record each issue URL in the plan frontmatter (`issue: <url>`) and run the bundled `resources/generate_plan_index.py` helper.
 

@@ -66,7 +66,7 @@ A typical first run, start to finish:
 1. Open your agent in the repo and run `/improve` (or `/improve quick` to keep it cheap).
 2. It maps the repo, audits it, and comes back with a findings table. Reply with the ones you want planned — "plan 1, 3 and 5".
 3. Plans land in `docs/dev/plans/` — one file each, plus an index with the recommended order. Read them; they're meant to be reviewed.
-4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews `EXECUTION_BASE_SHA..HEAD` before running repository code, and reports back with the worktree path, branch, reviewed commit, execution profile, verification environment, and verdict. Merging stays up to you.
+4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews the diff from the recorded literal execution-base SHA to executor `HEAD` before running repository code, and reports back with the execution locator, branch, reviewed commit, execution profile, verification environment, and verdict. Every command runs as its own invocation — no shell state carries between steps. Merging stays up to you.
 5. Next session, run `/improve reconcile` to clean up the backlog: verify what landed, refresh what drifted, unblock what got stuck.
 
 Before a PR, `/improve branch` does the same thing scoped to what your branch changes, including committed diffs plus staged, unstaged, and untracked files from `git status --porcelain=v1`.
