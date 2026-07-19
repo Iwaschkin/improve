@@ -114,13 +114,13 @@ try {
 
 ## Commands you will need
 
-| Purpose   | Command                          | Expected on success |
-|-----------|----------------------------------|---------------------|
-| Install   | `pnpm install`                   | exit 0              |
-| Tests     | `pnpm shadcn:test`               | all pass            |
-| Lint+types| `pnpm check`                     | exit 0              |
+| Purpose | Command | Provenance | Execution class | Expected on success |
+| ------- | ------- | ---------- | --------------- | ------------------- |
+| Install | `pnpm install` | package manager / not run in sample | PACKAGE_INSTALL | exit 0 |
+| Tests | `pnpm shadcn:test` | package script / not run in sample | EXECUTES_REPOSITORY_CODE | all pass |
+| Lint+types | `pnpm check` | package script / not run in sample | EXECUTES_REPOSITORY_CODE | exit 0 |
 
-Run from the repo root.
+Run from the repo root. This sample records command provenance but did not execute these commands in the `improve` repository.
 
 ## Scope
 
