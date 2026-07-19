@@ -42,7 +42,7 @@ A worktree remains the recommended default in every profile — it keeps the adv
 
 - Select the execution profile (see Execution profiles above) and state it to the user.
 - The repo is a git repository (change isolation requires it). If not: stop and say so.
-- The plan file exists and its dependencies show VERIFIED in `docs/dev/plans/README.md`. If not: stop, name the missing dependency.
+- Execution eligibility comes from validated plan files, never from the generated README — a missing, stale, or hand-edited index has no effect on the decision. Run the bundled gate with the literal plan ID: `python <skill-root>/resources/plan_state.py --plans-dir docs/dev/plans check-executable IMP-NNN`. Exit 0 means eligible (TODO, every direct and transitive dependency VERIFIED); exit 3 lists every blocking dependency with its authoritative status — stop and report them; exit 2 means the backlog itself is invalid — fix the reported plan files first. After the gate passes, record EXECUTING metadata (locator, branch, base, profile) in the plan frontmatter and regenerate the index before dispatch.
 - Run the plan's drift check yourself. If in-scope files changed since `Planned at`, reconcile the plan first (see below) — don't hand a stale plan to an executor.
 - Execution runs from a committed baseline. If `git status --porcelain=v1` prints anything, do not stop unconditionally — present the safe choices and let the user pick:
   - execute committed `HEAD`, stating plainly that uncommitted changes are excluded from execution;
@@ -90,10 +90,12 @@ The executor prompt must contain:
 > were not run. Touch only the files listed as in scope. If any STOP condition
 > occurs, stop immediately and report. Do not improvise around obstacles.
 > Commit your work in the worktree following the plan's git workflow section.
-> One override: SKIP the plan's instruction to regenerate `docs/dev/plans/README.md` —
-> your reviewer maintains the generated index. Before reporting, audit every claim in
-> your report against an actual tool result from this session — only report
-> what you can point to evidence for; if a verification failed or was
+> The plan file and the generated plan index are reviewer-owned control-plane
+> records: do not modify the plan's frontmatter, its Status section, or
+> `docs/dev/plans/README.md` — your reviewer records lifecycle transitions
+> and regenerates the index from your evidence. Before reporting, audit every
+> claim in your report against an actual tool result from this session — only
+> report what you can point to evidence for; if a verification failed or was
 > skipped, say so plainly. When finished, reply with exactly the report
 > format below.
 

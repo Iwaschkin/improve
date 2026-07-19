@@ -51,14 +51,12 @@ issue: null
 > expected result before moving to the next step. If repository-code execution
 > is not permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
-> improvise. When finished, update this plan's YAML frontmatter and run the
-> bundled `resources/generate_plan_index.py` helper — unless a reviewer
-> dispatched you and told you they maintain the generated index, or you are
-> executing this plan manually without the improve skill installed. In the
-> manual case, report completion to the operator instead: the reviewer
-> refreshes metadata and regenerates the index from an installed skill or
-> repository checkout. Index generation is a projection — it never gates the
-> implementation itself.
+> improvise. When finished, report STATUS, HEAD SHA, FILES CHANGED,
+> VERIFICATION RESULTS, and NOTES. This plan's YAML frontmatter and the
+> generated plan index are reviewer-owned control-plane records — do not
+> modify either; the reviewer records lifecycle transitions and regenerates
+> the index after reviewing your evidence. Index generation is a projection —
+> it never gates the implementation itself.
 >
 > **Drift check (run first)**: `git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`
 > If any in-scope file changed since this plan was written, compare the
@@ -67,7 +65,7 @@ issue: null
 
 ## Status
 
-The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; run the bundled `resources/generate_plan_index.py` helper after status changes.
+The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; the reviewer that owns lifecycle transitions reruns the bundled `resources/generate_plan_index.py` helper after status changes — executors never write these records.
 
 - **Status**: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
 - **Priority**: P1 | P2 | P3
@@ -198,7 +196,9 @@ Machine-checkable. ALL must hold:
 - [ ] `pnpm test` exits 0; new tests for <X> exist and pass
 - [ ] `grep -rn "<old pattern>" src/` returns no matches
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
+- [ ] The final report contains STATUS, HEAD SHA, FILES CHANGED, VERIFICATION
+      RESULTS, and NOTES; this plan file and the generated index are unmodified
+      (the reviewer owns both)
 
 ## STOP conditions
 

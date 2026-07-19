@@ -11,6 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = REPO_ROOT / "skills" / "improve" / "resources" / "generate_plan_index.py"
+PLAN_STATE = REPO_ROOT / "skills" / "improve" / "resources" / "plan_state.py"
 
 VALID_SHA = "4adde10c1d1d6308c485b87efbbefb6a6a241785"
 
@@ -84,6 +85,169 @@ def run_generator(plans_dir: Path) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
     )
+
+
+def run_plan_state(plans_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(PLAN_STATE), "--plans-dir", str(plans_dir), *args],
+        capture_output=True,
+        text=True,
+    )
+
+
+def verified_plan(number: int, dependencies: str = "dependencies: []") -> str:
+    """A VERIFIED plan carrying complete execution provenance."""
+    return plan_frontmatter(
+        id=f"id: IMP-{number:03d}",
+        title=f"title: Test plan {number}",
+        status="status: VERIFIED",
+        dependencies=dependencies,
+        execution_branch=f"execution_branch: advisor/{number:03d}-test",
+        execution_base=f"execution_base: {VALID_SHA}",
+        reviewed_commit=f"reviewed_commit: {OTHER_SHA}",
+        merged_commit=f"merged_commit: {OTHER_SHA}",
+        issue="issue: null\nexecution_profile: trusted-local\n"
+        f"execution_locator: docs/dev/plans/.worktrees/{number:03d}-test\n"
+        f"executor_head: {OTHER_SHA}\n"
+        "verification_environment: host-approval-policy",
+    )
+
+
+def snapshot(directory: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(directory)): path.read_bytes()
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
+    }
+
+
+def check(condition: bool, label: str, failures: list[str]) -> None:
+    if not condition:
+        failures.append(label)
+
+
+def test_plan_state_cli() -> bool:
+    """Eligibility gate: authoritative frontmatter, README-immune, read-only."""
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(verified_plan(1), encoding="utf-8")
+        (plans_dir / "002-second.md").write_text(
+            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
+        )
+
+        result = run_plan_state(plans_dir, "validate")
+        check(result.returncode == 0, "validate valid dir exits 0", failures)
+
+        # Eligible with no README at all.
+        result = run_plan_state(plans_dir, "check-executable", "IMP-002")
+        check(result.returncode == 0, "eligible plan exits 0 without README", failures)
+
+        # A falsified README must have no effect in either direction.
+        (plans_dir / "README.md").write_text(
+            "| IMP-001 | ... | BLOCKED |\n| IMP-002 | ... | VERIFIED |\n",
+            encoding="utf-8",
+        )
+        result = run_plan_state(plans_dir, "check-executable", "IMP-002")
+        check(result.returncode == 0, "falsified README cannot block", failures)
+
+        before = snapshot(plans_dir)
+        run_plan_state(plans_dir, "validate")
+        run_plan_state(plans_dir, "check-executable", "IMP-002")
+        check(snapshot(plans_dir) == before, "read-only subcommands write nothing", failures)
+
+        result = run_plan_state(plans_dir, "check-executable", "IMP-999")
+        check(result.returncode == 2, "missing plan id exits 2", failures)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(numbered_plan(1), encoding="utf-8")
+        (plans_dir / "002-second.md").write_text(
+            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
+        )
+        (plans_dir / "003-third.md").write_text(
+            numbered_plan(3, "dependencies:\n  - IMP-002"), encoding="utf-8"
+        )
+        # README claims everything is VERIFIED; frontmatter says TODO.
+        (plans_dir / "README.md").write_text(
+            "| IMP-001 | VERIFIED |\n| IMP-002 | VERIFIED |\n", encoding="utf-8"
+        )
+        result = run_plan_state(plans_dir, "check-executable", "IMP-003")
+        check(result.returncode == 3, "transitive TODO blocks despite README", failures)
+        check(
+            "IMP-001" in result.stderr and "IMP-002" in result.stderr,
+            "all transitive blockers are listed",
+            failures,
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(
+            plan_frontmatter(
+                status="status: EXECUTING",
+                issue="issue: null\nstatus_note: dispatched earlier this session",
+            ),
+            encoding="utf-8",
+        )
+        result = run_plan_state(plans_dir, "check-executable", "IMP-001")
+        check(result.returncode == 3, "non-TODO selected plan exits 3", failures)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(
+            plan_frontmatter(priority="priority: URGENT"), encoding="utf-8"
+        )
+        state_result = run_plan_state(plans_dir, "validate")
+        gen_result = run_generator(plans_dir)
+        check(state_result.returncode == 2, "invalid backlog exits 2", failures)
+        check(gen_result.returncode != 0, "generator rejects same fixture", failures)
+        state_first = next(
+            (line for line in state_result.stderr.splitlines() if line.startswith("ERROR")), ""
+        )
+        gen_first = next(
+            (line for line in gen_result.stderr.splitlines() if line.startswith("ERROR")), ""
+        )
+        check(
+            state_first == gen_first and state_first != "",
+            "generator and gate share the same primary diagnostic",
+            failures,
+        )
+
+    template = (
+        REPO_ROOT / "skills" / "improve" / "references" / "plan-template.md"
+    ).read_text(encoding="utf-8")
+    closing = (
+        REPO_ROOT / "skills" / "improve" / "references" / "closing-the-loop.md"
+    ).read_text(encoding="utf-8")
+    check(
+        "STATUS, HEAD SHA, FILES CHANGED," in template,
+        "template requires the five-field executor report",
+        failures,
+    )
+    check(
+        "update this plan's YAML frontmatter and run" not in template,
+        "template no longer tells executors to write lifecycle state",
+        failures,
+    )
+    check(
+        "reviewer-owned control-plane" in template
+        and "reviewer-owned control-plane" in closing,
+        "executor-facing prose declares plan records reviewer-owned",
+        failures,
+    )
+    check(
+        "check-executable" in closing,
+        "dispatch preconditions use the authoritative gate",
+        failures,
+    )
+
+    for failure in failures:
+        print(f"  {failure}")
+    return not failures
 
 
 def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
@@ -540,6 +704,11 @@ def main() -> int:
         print("PASS deterministic-output")
     else:
         print("FAIL deterministic-output")
+        failures += 1
+    if test_plan_state_cli():
+        print("PASS plan-state-cli")
+    else:
+        print("FAIL plan-state-cli")
         failures += 1
     if failures:
         print(f"{failures} generator fixture test(s) failed")
