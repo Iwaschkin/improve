@@ -2,6 +2,11 @@
 name: improve
 description: Survey any codebase as a senior advisor and produce prioritized, self-contained implementation plans for OTHER models/agents to execute. Strictly read-only on source code — never implements, fixes, or refactors anything itself. Use when asked to audit a codebase, find improvement opportunities (bugs, security, performance, test coverage, tech debt, migrations, DX), suggest features or where to take the project next (roadmap, product direction), or generate handoff plans for another agent to implement.
 license: MIT
+compatibility: >
+  Audit and planning require a host that supports Agent Skills and repository
+  file access. Execute mode additionally requires Git worktrees, either
+  worktree-isolated subagent dispatch or a supported headless coding CLI, and
+  preferably a restricted sandbox for repository-code execution.
 metadata:
   author: Iwaschkin
   version: "1.1.0"

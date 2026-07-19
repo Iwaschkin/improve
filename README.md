@@ -18,6 +18,18 @@ npx skills add Iwaschkin/improve
 
 Works in any agent that supports [Agent Skills](https://agentskills.io) format. This fork is maintained at `Iwaschkin/improve` and is based on upstream `shadcn/improve`; the plans it writes are plain markdown, so any agent (or human) can pick them up.
 
+## Compatibility
+
+Audit and planning need an Agent Skills host with repository file access. `execute` has additional requirements because it dispatches another coding agent and may run repository-code commands.
+
+| Capability | Audit | Plan | Execute |
+| ---------- | ----- | ---- | ------- |
+| File access | Required | Required | Required |
+| Git | Recommended | Required | Required |
+| Parallel subagents | Optional | Optional | Recommended |
+| Coding CLI | No | No | Optional |
+| Secure sandbox | No | No | Strongly recommended |
+
 ## Usage
 
 ```text
