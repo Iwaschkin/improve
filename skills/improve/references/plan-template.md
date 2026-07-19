@@ -199,7 +199,7 @@ For the human/agent who owns this code after the change lands:
 
 ## Index file: `docs/dev/plans/README.md`
 
-Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper:
+Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, and unresolved or out-of-order dependencies fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
 
 ```markdown
 # Implementation Plans
