@@ -83,7 +83,9 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool]:
         files["docs/reference.md"] = "# Reference\n"
         return files, True
     if name == "invalid-name":
-        files["skills/improve/SKILL.md"] = BASE_SKILL.replace("name: improve", "name: Bad Name")
+        files["skills/improve/SKILL.md"] = BASE_SKILL.replace(
+            "name: improve", "name: Bad Name"
+        )
         return files, False
     if name == "directory-name-mismatch":
         return base_files(skill_dir="not-improve"), False
@@ -102,7 +104,9 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool]:
         files[".claude-plugin/plugin.json"] = json.dumps(plugin, indent=2)
         return files, False
     if name == "missing-variant":
-        files["README.md"] = BASE_README.replace("/improve execute <plan>         dispatch executor\n", "")
+        files["README.md"] = BASE_README.replace(
+            "/improve execute <plan>         dispatch executor\n", ""
+        )
         return files, False
     if name == "empty-skill":
         files["skills/improve/SKILL.md"] = ""

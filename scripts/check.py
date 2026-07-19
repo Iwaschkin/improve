@@ -63,15 +63,21 @@ class Checker:
             self.fail("check1: no skills/*/SKILL.md file found")
             return
         if len(skill_paths) > 1:
-            rel_paths = ", ".join(path.relative_to(self.root).as_posix() for path in skill_paths)
-            self.fail(f"check1: expected one skill, found {len(skill_paths)}: {rel_paths}")
+            rel_paths = ", ".join(
+                path.relative_to(self.root).as_posix() for path in skill_paths
+            )
+            self.fail(
+                f"check1: expected one skill, found {len(skill_paths)}: {rel_paths}"
+            )
             return
 
         skill_path = skill_paths[0]
         try:
             self.skill_text = skill_path.read_text(encoding="utf-8")
         except OSError as exc:
-            self.fail(f"check1: cannot read {skill_path.relative_to(self.root).as_posix()}: {exc}")
+            self.fail(
+                f"check1: cannot read {skill_path.relative_to(self.root).as_posix()}: {exc}"
+            )
             return
         if not self.skill_text.strip():
             self.fail("check1: SKILL.md is empty")
@@ -86,7 +92,9 @@ class Checker:
         description = scalar(data.get("description"))
         compatibility = scalar(data.get("compatibility"))
         metadata = data.get("metadata")
-        metadata_map = cast(dict[str, Any], metadata) if isinstance(metadata, dict) else {}
+        metadata_map = (
+            cast(dict[str, Any], metadata) if isinstance(metadata, dict) else {}
+        )
         version = scalar(metadata_map.get("version"))
 
         if not name:
@@ -101,12 +109,16 @@ class Checker:
             self.skill_name = name
 
         if not description:
-            self.fail("check1: SKILL.md frontmatter missing or empty 'description:' field")
+            self.fail(
+                "check1: SKILL.md frontmatter missing or empty 'description:' field"
+            )
         elif len(description) > 1024:
             self.fail("check1: SKILL.md description is longer than 1024 characters")
 
         if not compatibility:
-            self.fail("check1: SKILL.md frontmatter missing or empty 'compatibility:' field")
+            self.fail(
+                "check1: SKILL.md frontmatter missing or empty 'compatibility:' field"
+            )
 
         if not version:
             self.fail("check1: SKILL.md metadata.version is missing or empty")
@@ -150,8 +162,17 @@ class Checker:
         if not author_name:
             self.fail("check2: plugin.json 'author.name' is empty or missing")
         if plugin_name and self.skill_name and plugin_name != self.skill_name:
-            self.fail(f"check2: plugin.json name {plugin_name!r} != SKILL.md name {self.skill_name!r}")
-        elif plugin_name and self.skill_name and plugin_version and repository and homepage and author_name:
+            self.fail(
+                f"check2: plugin.json name {plugin_name!r} != SKILL.md name {self.skill_name!r}"
+            )
+        elif (
+            plugin_name
+            and self.skill_name
+            and plugin_version
+            and repository
+            and homepage
+            and author_name
+        ):
             self.ok(f"check2: plugin.json valid, name={plugin_name!r} matches SKILL.md")
         return plugin
 
@@ -163,9 +184,14 @@ class Checker:
             self.fail("check3: README.md not found")
             return
 
-        install_match = re.search(r"\bnpx\s+skills\s+add\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", self.readme_text)
+        install_match = re.search(
+            r"\bnpx\s+skills\s+add\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)",
+            self.readme_text,
+        )
         if not install_match:
-            self.fail("check3: README.md missing 'npx skills add <owner>/<repo>' install command")
+            self.fail(
+                "check3: README.md missing 'npx skills add <owner>/<repo>' install command"
+            )
             return
         install_target = install_match.group(1)
         repository = scalar(plugin.get("repository")) if plugin else ""
@@ -223,7 +249,9 @@ class Checker:
         for failure in failures:
             self.fail(f"check5: {failure}")
         if not failures:
-            self.ok(f"check5: all {len(REQUIRED_VARIANTS)} variants present in README.md and SKILL.md")
+            self.ok(
+                f"check5: all {len(REQUIRED_VARIANTS)} variants present in README.md and SKILL.md"
+            )
 
     def check_version_agreement(self, plugin: dict[str, Any] | None) -> None:
         if plugin is None or not self.skill_version:
@@ -262,7 +290,9 @@ def parse_frontmatter(lines: list[str], fail: Any) -> dict[str, Any]:
     def finish_fold() -> None:
         nonlocal current_fold_key, current_fold_lines
         if current_fold_key is not None:
-            data[current_fold_key] = " ".join(line.strip() for line in current_fold_lines).strip()
+            data[current_fold_key] = " ".join(
+                line.strip() for line in current_fold_lines
+            ).strip()
             current_fold_key = None
             current_fold_lines = []
 
@@ -276,11 +306,15 @@ def parse_frontmatter(lines: list[str], fail: Any) -> dict[str, Any]:
             if current_map is not None:
                 match = re.match(r"^\s+([A-Za-z0-9_-]+):\s*(.*)$", raw_line)
                 if not match:
-                    fail(f"check1: malformed nested frontmatter line {line_number}: {raw_line!r}")
+                    fail(
+                        f"check1: malformed nested frontmatter line {line_number}: {raw_line!r}"
+                    )
                     continue
                 current_map[match.group(1)] = unquote(match.group(2).strip())
                 continue
-            fail(f"check1: unexpected indented frontmatter line {line_number}: {raw_line!r}")
+            fail(
+                f"check1: unexpected indented frontmatter line {line_number}: {raw_line!r}"
+            )
             continue
 
         finish_fold()
@@ -341,7 +375,7 @@ def markdown_links(text: str) -> list[tuple[int, str]]:
 def first_link_token(target: str) -> str:
     target = target.strip()
     if target.startswith("<") and ">" in target:
-        return target[1:target.index(">")]
+        return target[1 : target.index(">")]
     return target.split()[0]
 
 
@@ -366,7 +400,9 @@ def skill_has_variant(text: str, variant: str) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate improve skill structure")
-    parser.add_argument("--root", default=str(DEFAULT_REPO_ROOT), help="repository root to validate")
+    parser.add_argument(
+        "--root", default=str(DEFAULT_REPO_ROOT), help="repository root to validate"
+    )
     args = parser.parse_args(argv)
     return Checker(Path(args.root).resolve()).run()
 
