@@ -1,90 +1,66 @@
 #!/usr/bin/env python3
-"""Generate docs/dev/plans/README.md from plan frontmatter."""
+"""Generate the plan-directory README.md index from plan frontmatter.
+
+Rendering only. Parsing, schema validation, lifecycle invariants, and the
+rejections source live in plan_state.py (same directory); this module writes
+the index atomically and only when the whole directory validates — invalid
+input exits nonzero and preserves the previous index.
+"""
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tempfile
 from pathlib import Path
-from typing import TypeAlias, cast
+from typing import Any, cast
 
-DEFAULT_PLANS_DIR = Path.cwd() / "docs" / "dev" / "plans"
-PlanValue: TypeAlias = str | bool | list[str] | None
+_RESOURCES_DIR = Path(__file__).resolve().parent
+if str(_RESOURCES_DIR) not in sys.path:
+    sys.path.insert(0, str(_RESOURCES_DIR))
 
-
-def split_frontmatter(text: str) -> list[str] | None:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return None
-    for index, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
-            return lines[1:index]
-    return None
-
-
-def parse_value(raw: str) -> PlanValue:
-    value = raw.strip()
-    if value in {"", "null", "~"}:
-        return None
-    if value == "[]":
-        return []
-    if value in {"true", "false"}:
-        return value == "true"
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-        return value[1:-1]
-    return value
+from plan_state import (  # noqa: E402
+    PlanValue,
+    collect_plans,
+    load_rejections,
+    plans_dir_display,
+    resolve_plans_dir,
+)
 
 
-def parse_frontmatter(lines: list[str]) -> dict[str, PlanValue]:
-    data: dict[str, PlanValue] = {}
-    current_list: str | None = None
-    for raw_line in lines:
-        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
-            continue
-        if raw_line.startswith("  - ") and current_list:
-            value = raw_line.strip()[2:].strip()
-            items = cast(list[str], data.setdefault(current_list, []))
-            items.append(value)
-            continue
-        current_list = None
-        if ":" not in raw_line:
-            continue
-        key, raw_value = raw_line.split(":", 1)
-        key = key.strip()
-        value = parse_value(raw_value)
-        data[key] = value
-        if value is None and raw_value.strip() == "":
-            data[key] = []
-            current_list = key
-    return data
-
-
-def plan_rows(plans_dir: Path) -> list[dict[str, PlanValue]]:
-    rows: list[dict[str, PlanValue]] = []
-    if not plans_dir.exists():
-        return rows
-    for path in sorted(plans_dir.glob("*.md")):
-        if path.name == "README.md":
-            continue
-        text = path.read_text(encoding="utf-8")
-        frontmatter = split_frontmatter(text)
-        if frontmatter is None:
-            continue
-        data = parse_frontmatter(frontmatter)
-        data["file"] = path.name
-        rows.append(data)
-    return rows
+def escape_cell(text: str) -> str:
+    """Keep arbitrary scalar content from corrupting the Markdown table."""
+    return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
 
 
 def cell(value: PlanValue) -> str:
     if value in (None, "", []):
         return "-"
     if isinstance(value, list):
-        return ", ".join(str(item) for item in value) if value else "-"
-    return str(value)
+        return escape_cell(", ".join(str(item) for item in value)) if value else "-"
+    return escape_cell(str(value))
 
 
-def render_index(rows: list[dict[str, PlanValue]]) -> str:
+EXECUTION_DETAIL_FIELDS = (
+    "execution_profile",
+    "execution_locator",
+    "execution_branch",
+    "execution_base",
+    "executor_head",
+    "reviewed_commit",
+    "merged_commit",
+    "target_branch",
+    "integration_method",
+    "verification_environment",
+    "verified_at",
+    "superseded_by",
+)
+
+
+def render_index(
+    rows: list[dict[str, PlanValue]], rejections: list[dict[str, Any]]
+) -> str:
     lines = [
         "# Implementation Plans",
         "",
@@ -92,13 +68,15 @@ def render_index(rows: list[dict[str, PlanValue]]) -> str:
         "",
         "## Execution Order & Status",
         "",
-        "| Plan | Title | Priority | Effort | Depends on | Status | Execution base | Reviewed commit | Merged commit |",
-        "| ---- | ----- | -------- | ------ | ---------- | ------ | -------------- | --------------- | ------------- |",
+        "| Plan | Title | Priority | Effort | Depends on | Status | Status note | Issue |",
+        "| ---- | ----- | -------- | ------ | ---------- | ------ | ----------- | ----- |",
     ]
     for row in rows:
         plan_id = cell(row.get("id"))
         title = cell(row.get("title"))
         filename = cell(row.get("file"))
+        if row.get("sensitive") is True:
+            title = f"{title} (sensitive)"
         if filename != "-":
             title = f"[{title}]({filename})"
         lines.append(
@@ -111,36 +89,110 @@ def render_index(rows: list[dict[str, PlanValue]]) -> str:
                     cell(row.get("effort")),
                     cell(row.get("dependencies")),
                     cell(row.get("status")),
-                    cell(row.get("execution_base")),
-                    cell(row.get("reviewed_commit")),
-                    cell(row.get("merged_commit")),
+                    cell(row.get("status_note")),
+                    cell(row.get("issue")),
                 ]
             )
             + " |"
         )
     if not rows:
-        lines.append("| - | No plans yet | - | - | - | - | - | - | - |")
+        lines.append("| - | No plans yet | - | - | - | - | - | - |")
     lines.extend(
         [
             "",
             "Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED",
-            "",
         ]
     )
+
+    detail_rows = [
+        row
+        for row in rows
+        if any(row.get(field) not in (None, "", []) for field in EXECUTION_DETAIL_FIELDS)
+    ]
+    if detail_rows:
+        lines.extend(
+            [
+                "",
+                "## Execution & Verification Details",
+                "",
+                "| Plan | Profile | Locator | Branch | Execution base | Executor head | Reviewed commit | Merged commit | Target branch | Method | Verification | Verified at | Superseded by |",
+                "| ---- | ------- | ------- | ------ | -------------- | ------------- | --------------- | ------------- | ------------- | ------ | ------------ | ----------- | ------------- |",
+            ]
+        )
+        for row in detail_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [cell(row.get("id"))]
+                    + [cell(row.get(field)) for field in EXECUTION_DETAIL_FIELDS]
+                )
+                + " |"
+            )
+
+    lines.extend(["", "## Findings Considered and Rejected", ""])
+    if rejections:
+        for entry in rejections:
+            evidence_list = cast(list[Any], entry.get("evidence") or [])
+            evidence = ", ".join(str(ref) for ref in evidence_list)
+            suffix = f" (evidence: {escape_cell(evidence)})" if evidence else ""
+            lines.append(
+                f"- [{escape_cell(str(entry.get('id')))}] "
+                f"{escape_cell(str(entry.get('title')))}: "
+                f"{escape_cell(str(entry.get('rationale')))} "
+                f"(recorded {entry.get('recorded_at')}){suffix}"
+            )
+    else:
+        lines.append("None recorded.")
+    lines.append("")
     return "\n".join(lines)
 
 
+def write_index_atomically(index_path: Path, content: str) -> None:
+    handle = tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        newline="\n",
+        dir=index_path.parent,
+        prefix=".index-",
+        suffix=".tmp",
+        delete=False,
+    )
+    try:
+        with handle:
+            handle.write(content)
+        os.replace(handle.name, index_path)
+    except BaseException:
+        Path(handle.name).unlink(missing_ok=True)
+        raise
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate docs/dev/plans/README.md")
+    parser = argparse.ArgumentParser(
+        description="Generate the selected plan directory's README.md index"
+    )
     parser.add_argument(
-        "--plans-dir", default=str(DEFAULT_PLANS_DIR), help="plan directory"
+        "--plans-dir", required=True, help="selected plans directory"
     )
     args = parser.parse_args()
-    plans_dir = Path(args.plans_dir)
-    plans_dir.mkdir(parents=True, exist_ok=True)
+    plans_dir, problem = resolve_plans_dir(args.plans_dir)
+    if plans_dir is None:
+        print(f"ERROR {problem}", file=sys.stderr)
+        return 2
+
+    rows, errors = collect_plans(plans_dir)
+    rejections = load_rejections(plans_dir, errors)
+    if errors:
+        for error in errors:
+            print(error.render(), file=sys.stderr)
+        print(
+            f"{len(errors)} error(s); index not written, previous index preserved",
+            file=sys.stderr,
+        )
+        return 1
+
     index_path = plans_dir / "README.md"
-    index_path.write_text(render_index(plan_rows(plans_dir)), encoding="utf-8")
-    print(f"wrote {index_path}")
+    write_index_atomically(index_path, render_index(rows, rejections))
+    print(f"wrote {plans_dir_display(plans_dir)}/README.md")
     return 0
 
 

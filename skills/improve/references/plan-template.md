@@ -8,7 +8,7 @@ Three properties make a plan executable by a weaker model:
 2. **Verification gates** — every step ends with a command and its expected result. The executor never has to *judge* whether it succeeded.
 3. **Hard boundaries and escape hatches** — explicit out-of-scope list, and "STOP and report" conditions instead of letting the model improvise when reality doesn't match the plan.
 
-File naming: `docs/dev/plans/NNN-short-slug.md`, numbered in recommended execution order.
+File naming: `<selected-plans-dir>/NNN-short-slug.md` (default `docs/dev/plans/`; the advisor resolves the selected directory once per the contract in `SKILL.md`), numbered in recommended execution order.
 
 ---
 
@@ -32,8 +32,19 @@ scope:
 dependencies: []
 execution_branch: null
 execution_base: null
+execution_profile: null
+execution_locator: null
+executor_head: null
 reviewed_commit: null
 merged_commit: null
+target_branch: null
+integration_method: null
+integration_evidence: []
+verified_at: null
+superseded_by: null
+verification_environment: null
+status_note: null
+skill_version: null
 sensitive: false
 issue: null
 ---
@@ -45,9 +56,20 @@ issue: null
 > expected result before moving to the next step. If repository-code execution
 > is not permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
-> improvise. When finished, update this plan's YAML frontmatter and run
-> the bundled `resources/generate_plan_index.py` helper — unless a reviewer dispatched you
-> and told you they maintain the generated index.
+> improvise. For corrective plans: observe the stated condition before
+> changing anything; fix the owning layer named below; verify the cause is
+> absent afterward; remove the paths the fix made obsolete; and add no
+> suppression, swallowed error, weakened type or test, retry/sleep/timeout,
+> special case, hardcoding, or compatibility shim this plan does not
+> explicitly justify. If the causal chain below is disproved, or the correct
+> fix requires an owner outside this plan's scope, STOP and report — never
+> silence the symptom to reach COMPLETE. When finished, report STATUS, HEAD
+> SHA, FILES CHANGED,
+> VERIFICATION RESULTS, and NOTES. This plan's YAML frontmatter and the
+> generated plan index are reviewer-owned control-plane records — do not
+> modify either; the reviewer records lifecycle transitions and regenerates
+> the index after reviewing your evidence. Index generation is a projection —
+> it never gates the implementation itself.
 >
 > **Drift check (run first)**: `git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`
 > If any in-scope file changed since this plan was written, compare the
@@ -56,19 +78,27 @@ issue: null
 
 ## Status
 
-The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; run the bundled `resources/generate_plan_index.py` helper after status changes.
+The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; the reviewer that owns lifecycle transitions reruns the bundled `resources/generate_plan_index.py` helper after status changes — executors never write these records.
 
 - **Status**: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
 - **Priority**: P1 | P2 | P3
 - **Effort**: S | M | L
 - **Risk**: LOW | MED | HIGH
-- **Depends on**: docs/dev/plans/NNN-*.md (or "none")
+- **Depends on**: <selected-plans-dir>/NNN-*.md (or "none")
 - **Category**: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
 - **Planned at**: commit `<full 40-character SHA>`, <YYYY-MM-DD>
 - **Working tree clean**: true | false (automatic `execute` requires true)
+- **Execution profile**: trusted-local | strict | manual (record when execution starts; omit until then)
+- **Execution locator**: worktree path, remote task id, branch, or PR URL (set when execution starts; omit until then)
 - **Execution base**: `<full 40-character SHA>` (set when execution starts; omit until then)
+- **Executor head**: `<full 40-character SHA>` (set from the executor report; omit until then)
 - **Reviewed commit**: `<full 40-character SHA>` (set when reviewer approves; omit until then)
-- **Merged commit**: `<full 40-character SHA>` (set when reachable from target branch; omit until then)
+- **Merged commit**: `<full 40-character SHA>` — the actual target-branch commit at which the reviewed change is integrated, which for squash/cherry-pick/rebase differs from the reviewed commit (set during reconcile; omit until then)
+- **Target branch / Integration method**: branch plus direct | merge | cherry-pick | squash | rebase | tree-equivalent, with concise evidence in `integration_evidence` (set during reconcile; omit until then)
+- **Verified at**: UTC timestamp `YYYY-MM-DDTHH:MM:SSZ` (set when acceptance checks pass at the merged commit; omit until then)
+- **Superseded by**: IMP-NNN (SUPERSEDED plans only)
+- **Verification environment**: restricted-sandbox | host-approval-policy | user-confirmed-normal-account | not-run | unknown (set when verification runs; omit until then)
+- **Status note**: one line — required for BLOCKED / REJECTED / ABANDONED / SUPERSEDED, omit otherwise
 - **Issue**: <GitHub issue URL — only when published via `--issues`; omit otherwise>
 
 ## Why this matters
@@ -94,6 +124,42 @@ The facts the executor needs, inlined — never "as discussed" or "see audit":
   to reuse, or the ADR whose decision this work must stay consistent with. Quote
   the specific lines — the executor has not read those docs.
 
+## Root cause and correct fix
+
+(Required. Fill it from this plan's own evidence — never by referring to the
+advisor session, another plan, another skill, or an unavailable reference.)
+
+For corrective plans:
+
+- **Applicability / causal status**: corrective, CONFIRMED (a HYPOTHESIS
+  becomes an investigation plan with a decision gate before implementation; a
+  NOT-APPLICABLE plan states its finding-specific reason and omits the rest
+  of this section).
+- **Observed condition**: the safely observed symptom, diagnostic, or static
+  proof.
+- **Causal chain**: input or condition → exercised code path or contract →
+  specific flaw → observed symptom/impact, with `file:line` evidence at each
+  non-obvious link.
+- **Correct fix layer**: the contract/module/state boundary that owns the
+  flaw, and why patching the symptom surface is not sufficient.
+- **Prohibited shortcuts**: the symptom-level responses specific to this
+  finding that the executor must not take.
+- **Compatibility consumers**: known current consumers of any contract this
+  plan changes or removes, and how they were established (public APIs,
+  persisted data, config formats, protocols, and extension points are
+  compatibility-sensitive even when a local call search is empty).
+- **Exception gate record**: normally `none`. A planned workaround is
+  acceptable only with all four: the confirmed cause; why the correct fix is
+  genuinely unavailable here (with upstream/platform evidence); the correct
+  fix and an objective removal condition; why this workaround is the
+  narrowest possible and how it is tested.
+
+Steps and tests must then prove causality: characterize the failing/unsafe
+condition before the implementation change (or record why static proof is
+safer), change the owning layer, remove now-obsolete code and unneeded
+compatibility paths, and rerun the regression plus surrounding behavior so it
+passes because the cause is absent.
+
 ## Commands you will need
 
 | Purpose   | Command                  | Provenance | Execution class | Expected on success |
@@ -103,7 +169,17 @@ The facts the executor needs, inlined — never "as discussed" or "see audit":
 | Tests     | `pnpm test -- <filter>`  | package script / CI / not run | EXECUTES_REPOSITORY_CODE | all pass |
 | Lint      | `pnpm lint`              | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0 |
 
-Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class should be one of: STATIC_READ, GIT_READ, EXECUTES_REPOSITORY_CODE, MAY_WRITE_CACHE, NETWORK_ACCESS, PACKAGE_INSTALL, HOST_MUTATION.
+Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class lists the command's *effects* — one or more of, comma-separated:
+
+- `STATIC_READ` — reads files/configuration without executing repository code.
+- `GIT_READ` — read-only Git operation.
+- `NETWORK_ACCESS` — sends or receives data over a network.
+- `MAY_WRITE_CACHE` — may write ignored/local cache state.
+- `EXECUTES_REPOSITORY_CODE` — imports, builds, tests, lints, or invokes scripts, plugins, hooks, or binaries controlled by the repository or its dependencies.
+- `PACKAGE_INSTALL` — resolves/downloads packages and may run lifecycle hooks.
+- `HOST_MUTATION` — changes external services, system state, production data, Git remotes, or durable host configuration.
+
+The class records what a command does, not permission. Permission follows the riskiest listed effect, the selected execution profile, and the host's actual enforcement. Names prove nothing: a tool named `check` may execute repository code, while an advisory query may use a package manager without running any script. Presume install, build, test, lint, framework-CLI, and package-script commands execute repository-controlled code unless there is concrete evidence otherwise.
 
 ## Suggested executor toolkit
 
@@ -171,8 +247,14 @@ Machine-checkable. ALL must hold:
 - [ ] `pnpm typecheck` exits 0
 - [ ] `pnpm test` exits 0; new tests for <X> exist and pass
 - [ ] `grep -rn "<old pattern>" src/` returns no matches
+- [ ] (corrective plans) The regression demonstrates the cause is absent, the
+      diff contains no unjustified symptom silencer, obsolete paths are
+      removed, and the compatibility decision matches the evidence in "Root
+      cause and correct fix"
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
+- [ ] The final report contains STATUS, HEAD SHA, FILES CHANGED, VERIFICATION
+      RESULTS, and NOTES; this plan file and the generated index are unmodified
+      (the reviewer owns both)
 
 ## STOP conditions
 
@@ -180,8 +262,16 @@ Stop and report back (do not improvise) if:
 
 - The code at the locations in "Current state" doesn't match the excerpts
   (the codebase has drifted since this plan was written).
-- A step's verification fails twice after a reasonable fix attempt.
-- The fix appears to require touching an out-of-scope file.
+- A verification fails unexpectedly: re-observe the condition first. If what
+  you observe contradicts this plan's causal chain, stop and report — do not
+  iterate speculative patches until something passes.
+- The fix appears to require touching an out-of-scope file, or the owning
+  layer for the confirmed cause lies outside this plan's scope.
+- Completing the work would require a workaround the "Root cause and correct
+  fix" section does not justify, weakening or skipping a test or guardrail,
+  or a compatibility decision about a consumer this plan does not establish.
+- Safe observation of a security-sensitive condition is impossible without an
+  unsafe reproduction.
 - The fix appears to exceed the plan's size limits (more than 7 in-scope files, a broad rewrite, or a multi-package migration not explicitly planned).
 - You discover the assumption "<key assumption>" is false.
 
@@ -197,9 +287,13 @@ For the human/agent who owns this code after the change lands:
 
 ---
 
-## Index file: `docs/dev/plans/README.md`
+## Index file: `<selected-plans-dir>/README.md`
 
-Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper:
+Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper requires Python 3.10+: find an interpreter with `python3 --version` where that name is conventional, otherwise `python --version`, and accept only 3.10 or newer. Invoke the helper by the path of the currently loaded skill's `resources/` directory — never a guessed global install path. If no compatible interpreter or helper path is available, leave the plan files as they are and report that index generation is pending; the index never blocks the implementation.
+
+The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, unresolved or out-of-order dependencies, and impossible lifecycle states (a REVIEWED plan without an executor head, a VERIFIED plan whose verification never ran, a BLOCKED plan without a `status_note`) fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
+
+The generated index renders three sections: the main status table (with status notes, issue URLs, and a `(sensitive)` marker on plans that must not be published without the confirmation flow), an `Execution & Verification Details` table for any plan with execution state, and a `Findings Considered and Rejected` section sourced from an optional `rejections.json` beside the plans — a JSON array of objects with exactly `id` (the audit's `[CATEGORY-NN]` finding identifier), `title`, `rationale`, `evidence` (list of `file:line` strings, may be empty), and `recorded_at` (`YYYY-MM-DD`). Write rejections there, never by hand-editing the generated index; an invalid `rejections.json` fails generation and preserves the previous index.
 
 ```markdown
 # Implementation Plans
@@ -228,6 +322,7 @@ Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED (with o
 ## Quality bar — check before finishing each plan
 
 - Could a model that has never seen this repo execute this with only the plan file and the repo? If any step requires knowledge from the advisor session, inline that knowledge.
+- For a corrective plan: is the causal chain complete and evidenced, the correct fix layer named, and the prohibited-shortcut list specific to this finding rather than boilerplate?
 - Is every verification a command with an expected result, not a judgment ("make sure it works")?
 - Does every step name exact files and symbols, not "the relevant module"?
 - Are the STOP conditions specific to this plan's actual risks, not boilerplate?

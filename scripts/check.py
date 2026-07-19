@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Any, cast
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
-SKILL_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
+# Agent Skills spec (https://agentskills.io/specification): 1-64 chars,
+# lowercase letters/digits/hyphens, alphanumeric first and last, no "--".
+SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SKILL_NAME_MAX = 64
+# SKILL.md is loaded as prompt text on every invocation. The budget guards
+# cumulative growth (~2x current size); the remedy for exceeding it is moving
+# detail into a phase-loaded references/ file, not raising the budget.
+SKILL_MD_MAX_BYTES = 32 * 1024
+SKILL_MD_MAX_LINES = 400
 INLINE_LINK_RE = re.compile(r"!?\[[^\]]+\]\(([^)\n]+)\)")
 REFERENCE_LINK_RE = re.compile(r"^\s*\[[^\]]+\]:\s*(\S+)")
 REQUIRED_VARIANTS = {
@@ -46,12 +54,16 @@ class Checker:
         print(f"PASS {label}")
 
     def run(self) -> int:
+        # Core Agent Skills package checks always run; host-adapter checks
+        # (.claude-plugin/) run only when the adapter is present.
         self.check_skill_frontmatter()
         plugin = self.check_plugin_manifest()
+        self.check_marketplace_manifest(plugin)
         self.check_readme_install_target(plugin)
         self.check_markdown_links()
         self.check_invocation_variants()
         self.check_version_agreement(plugin)
+        self.check_skill_size_budget()
         if self.failures:
             return 1
         print("all checks passed")
@@ -97,10 +109,11 @@ class Checker:
         )
         version = scalar(metadata_map.get("version"))
 
+        name_problem = skill_name_problem(name)
         if not name:
             self.fail("check1: SKILL.md frontmatter missing or empty 'name:' field")
-        elif not SKILL_NAME_RE.fullmatch(name):
-            self.fail("check1: SKILL.md name must match ^[a-z][a-z0-9-]{1,63}$")
+        elif name_problem:
+            self.fail(f"check1: SKILL.md name {name!r} invalid: {name_problem}")
         elif skill_path.parent.name != name:
             self.fail(
                 f"check1: skill directory {skill_path.parent.name!r} does not match name {name!r}"
@@ -132,11 +145,12 @@ class Checker:
         plugin_path = self.root / ".claude-plugin" / "plugin.json"
         try:
             plugin_raw: Any = json.loads(plugin_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            # The Claude adapter is optional; a valid core package stands alone.
+            self.ok("check2: no .claude-plugin/plugin.json (optional adapter absent)")
+            return None
         except json.JSONDecodeError as exc:
             self.fail(f"check2: .claude-plugin/plugin.json is not valid JSON: {exc}")
-            return None
-        except FileNotFoundError:
-            self.fail("check2: .claude-plugin/plugin.json not found")
             return None
         if not isinstance(plugin_raw, dict):
             self.fail("check2: .claude-plugin/plugin.json must contain a JSON object")
@@ -176,6 +190,55 @@ class Checker:
             self.ok(f"check2: plugin.json valid, name={plugin_name!r} matches SKILL.md")
         return plugin
 
+    def check_marketplace_manifest(self, plugin: dict[str, Any] | None) -> None:
+        marketplace_path = self.root / ".claude-plugin" / "marketplace.json"
+        try:
+            raw: Any = json.loads(marketplace_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            # Optional even when the plugin manifest exists.
+            self.ok("check2b: no marketplace.json (optional adapter file absent)")
+            return
+        except json.JSONDecodeError as exc:
+            self.fail(f"check2b: marketplace.json is not valid JSON: {exc}")
+            return
+        if not isinstance(raw, dict):
+            self.fail("check2b: marketplace.json must contain a JSON object")
+            return
+        marketplace = cast(dict[str, Any], raw)
+        owner = marketplace.get("owner")
+        owner_map = cast(dict[str, Any], owner) if isinstance(owner, dict) else {}
+        problems: list[str] = []
+        if not scalar(owner_map.get("name")):
+            problems.append("owner.name is empty or missing")
+        plugins = marketplace.get("plugins")
+        entries = (
+            cast(list[Any], plugins) if isinstance(plugins, list) else []
+        )
+        entry = next(
+            (
+                cast(dict[str, Any], item)
+                for item in entries
+                if isinstance(item, dict)
+                and scalar(cast(dict[str, Any], item).get("name"))
+                == (self.skill_name or "improve")
+            ),
+            None,
+        )
+        if entry is None:
+            problems.append(
+                f"no plugins[] entry named {self.skill_name or 'improve'!r}"
+            )
+        elif not scalar(entry.get("source")):
+            problems.append("plugin entry 'source' is empty or missing")
+        if plugin is None:
+            problems.append(
+                "marketplace.json present without .claude-plugin/plugin.json"
+            )
+        for problem in problems:
+            self.fail(f"check2b: {problem}")
+        if not problems:
+            self.ok("check2b: marketplace.json valid")
+
     def check_readme_install_target(self, plugin: dict[str, Any] | None) -> None:
         readme_path = self.root / "README.md"
         try:
@@ -200,6 +263,8 @@ class Checker:
             self.fail(
                 f"check3: README install target {install_target!r} != plugin repository {repository_target!r}"
             )
+        elif plugin is None:
+            self.ok("check3: README install command present (no plugin to cross-check)")
         else:
             self.ok("check3: README install target matches plugin repository")
 
@@ -264,9 +329,44 @@ class Checker:
         else:
             self.ok(f"check6: version agrees: {self.skill_version!r}")
 
+    def check_skill_size_budget(self) -> None:
+        if not self.skill_text:
+            return
+        size = len(self.skill_text.encode("utf-8"))
+        lines = self.skill_text.count("\n") + 1
+        problems: list[str] = []
+        if size > SKILL_MD_MAX_BYTES:
+            problems.append(f"{size} bytes exceeds the {SKILL_MD_MAX_BYTES}-byte budget")
+        if lines > SKILL_MD_MAX_LINES:
+            problems.append(f"{lines} lines exceeds the {SKILL_MD_MAX_LINES}-line budget")
+        for problem in problems:
+            self.fail(
+                f"check7: SKILL.md {problem}; move detail into a phase-loaded "
+                "references/ file instead of raising the budget"
+            )
+        if not problems:
+            self.ok(f"check7: SKILL.md within size budget ({size} bytes, {lines} lines)")
+
 
 def scalar(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def skill_name_problem(name: str) -> str | None:
+    """Return why a skill name violates the Agent Skills rules, or None."""
+    if not name:
+        return None
+    if len(name) > SKILL_NAME_MAX:
+        return f"longer than {SKILL_NAME_MAX} characters"
+    if re.search(r"[^a-z0-9-]", name):
+        return "only lowercase letters, digits, and hyphens are allowed"
+    if name.startswith("-") or name.endswith("-"):
+        return "must not start or end with a hyphen"
+    if "--" in name:
+        return "consecutive hyphens are not allowed"
+    if not SKILL_NAME_RE.fullmatch(name):
+        return "does not satisfy the Agent Skills name rules"
+    return None
 
 
 def split_frontmatter(text: str, fail: Any) -> list[str] | None:
@@ -389,9 +489,14 @@ def resolve_link(base_dir: Path, target: str) -> Path:
 
 
 def readme_has_variant(text: str, variant: str) -> bool:
+    # Slash-command lines are one host's spelling; a variant documented as a
+    # code token in a usage block or table also counts.
     if variant == "--issues":
-        return re.search(r"(?m)^/improve\b.*--issues\b", text) is not None
-    return re.search(rf"(?m)^/improve\s+{re.escape(variant)}(\s|\b)", text) is not None
+        if re.search(r"(?m)^/improve\b.*--issues\b", text):
+            return True
+    elif re.search(rf"(?m)^/improve\s+{re.escape(variant)}(\s|\b)", text):
+        return True
+    return re.search(rf"`{re.escape(variant)}[`\s]", text) is not None
 
 
 def skill_has_variant(text: str, variant: str) -> bool:
