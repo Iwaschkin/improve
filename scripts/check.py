@@ -19,15 +19,15 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-failures = []
+failures: list[str] = []
 
 
-def fail(msg):
+def fail(msg: str) -> None:
     failures.append(msg)
     print(f"FAIL {msg}")
 
 
-def ok(label):
+def ok(label: str) -> None:
     print(f"PASS {label}")
 
 
@@ -147,7 +147,7 @@ if plugin is not None:
 
 INLINE_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)#\s]+)(?:#[^)]*)?\)")
 
-link_failures = []
+link_failures: list[str] = []
 
 for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
     # Skip .git and plans directories
@@ -222,7 +222,7 @@ README_PATH = os.path.join(REPO_ROOT, "README.md")
 with open(README_PATH, encoding="utf-8") as f:
     readme_text = f.read()
 
-parity_failures = []
+parity_failures: list[str] = []
 for variant in sorted(VARIANTS):
     in_readme = variant in readme_text
     in_skill = variant in skill_text
