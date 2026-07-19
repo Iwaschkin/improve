@@ -4,7 +4,7 @@ An agent skill that audits any codebase and writes implementation plans for othe
 
 The idea: use your most capable model for the part where intelligence compounds — understanding the codebase, judging what's worth doing, writing the spec — and hand execution to cheaper models. The skill never implements anything itself. The plan is the product.
 
-```
+```text
 you          →  /improve                    (expensive model, advises)
 plans/       →  001-fix-n-plus-one.md       (self-contained specs)
 other agent  →  implements, tests, ships    (cheap model, executes)
@@ -20,7 +20,7 @@ Works in any agent that supports [Agent Skills](https://agentskills.io) format. 
 
 ## Usage
 
-```
+```text
 /improve                        full audit → prioritized findings → plans
 /improve quick                  cheap pass: hotspots, top findings only
 /improve deep                   exhaustive: every package, every category
@@ -41,7 +41,7 @@ A typical first run, start to finish:
 1. Open your agent in the repo and run `/improve` (or `/improve quick` to keep it cheap).
 2. It maps the repo, audits it, and comes back with a findings table. Reply with the ones you want planned — "plan 1, 3 and 5".
 3. Plans land in `plans/` — one file each, plus an index with the recommended order. Read them; they're meant to be reviewed.
-4. Hand a plan to any agent ("implement plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an isolated worktree, reviews the diff against the plan, and reports back with a verdict. Merging stays up to you.
+4. Hand a plan to any agent ("implement plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews the diff against the plan before running it, and reports back with the worktree path, branch, and verdict. Merging stays up to you.
 5. Next session, run `/improve reconcile` to clean up the backlog: verify what landed, refresh what drifted, unblock what got stuck.
 
 Before a PR, `/improve branch` does the same thing scoped to just what your branch changes.
@@ -50,7 +50,7 @@ Before a PR, `/improve branch` does the same thing scoped to just what your bran
 
 A run against [shadcn/ui](https://github.com/shadcn-ui/ui) came back with findings like:
 
-```
+```markdown
 | # | Finding                                        | Category  | Effort | Confidence |
 |---|------------------------------------------------|-----------|--------|------------|
 | 1 | shadow-config duplicated in search.ts/view.ts, | tech-debt | M      | HIGH       |
@@ -62,7 +62,7 @@ Columns abbreviated for the example; the full table also carries Impact, Risk, a
 
 …and rejected a few, with reasons recorded so they don't come back next run:
 
-```
+```text
 - [SEC-01] https_proxy env var "SSRF": by-design — standard proxy convention,
   every CLI honors it. Not a finding.
 ```
@@ -95,13 +95,13 @@ Each plan also stamps the git commit it was written against, so executors run a 
 
 Plans aren't fire-and-forget:
 
-- **`execute <plan>`** spawns a cheaper executor subagent in an isolated git worktree, hands it the plan, then reviews the result like a tech lead — re-runs every done criterion, checks scope compliance, reads the diff against intent. Verdict: approve (merging stays your call), send back for revision (max 2 rounds), or block and refine the plan.
+- **`execute <plan>`** dispatches a cheaper executor in an ignored workspace-local disposable git worktree. The executor can be a worktree-isolated subagent or, when the host cannot spawn one, a headless coding CLI run from the prepared worktree. The advisor checks scope, reads the diff and tests, then re-runs every done criterion. Verdict: approve (merging stays your call), send back for revision (max 2 rounds), or block and refine the plan.
 - **`reconcile`** processes what happened since: verifies DONE plans still hold, investigates BLOCKED ones and rewrites around the obstacle, refreshes drifted plans, retires findings that got fixed independently.
 - **`--issues`** publishes plans as GitHub issues — same self-contained body, so any agent or human can pick them up where work already lives.
 
 ## Hard rules
 
-- Never modifies source code itself. The only writes go to `plans/`; executors edit only in disposable worktrees, and merging is always yours.
+- Never modifies source code itself. The only writes go to `plans/`; executor worktrees are disposable and ignored under `plans/.worktrees/` by default, executors edit only there, and merging is always yours.
 - Never runs commands that mutate your working tree — read, search, and read-only analysis only.
 - Never reproduces secret values. Locations and credential types only, rotation always recommended.
 - Asked to implement? It declines and points at the plan (or offers `execute`).
