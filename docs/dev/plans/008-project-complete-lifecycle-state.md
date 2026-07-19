@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -20,7 +19,6 @@ dependencies:
   - IMP-002
   - IMP-003
   - IMP-004
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -42,18 +40,6 @@ issue: null
 > Stop unless IMP-002's explicit validation and generator fixture suite are
 > present, IMP-003 has defined the trust-profile names this schema reuses, and
 > IMP-004 has defined the execution-locator concept.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: IMP-002, IMP-003, IMP-004
-- **Category**: dx
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

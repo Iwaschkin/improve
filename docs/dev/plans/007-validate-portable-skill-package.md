@@ -7,7 +7,6 @@ effort: M
 risk: LOW
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -18,7 +17,6 @@ scope:
   - .claude-plugin/marketplace.json
 dependencies:
   - IMP-004
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -40,18 +38,6 @@ issue: null
 > `git diff --stat 4adde10c1d1d6308c485b87efbbefb6a6a241785..HEAD -- scripts/check.py scripts/check_tests.py README.md .claude-plugin/plugin.json .claude-plugin/marketplace.json`.
 > Stop if IMP-004's host-neutral compatibility language is not present or if
 > the project has adopted a different canonical packaging format.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: M
-- **Risk**: LOW
-- **Depends on**: `docs/dev/plans/004-make-workflow-host-neutral.md`
-- **Category**: dx
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

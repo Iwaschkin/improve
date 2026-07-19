@@ -7,7 +7,6 @@ effort: S
 risk: LOW
 category: tests
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -17,7 +16,6 @@ dependencies:
   - IMP-007
   - IMP-010
   - IMP-012
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -42,18 +40,6 @@ issue: null
 > dependencies are VERIFIED — the cases below are oracles over their final
 > behavior, and writing them against unfinished contracts would freeze the
 > wrong expectations.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: S
-- **Risk**: LOW
-- **Depends on**: IMP-007, IMP-010, IMP-012
-- **Category**: tests
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

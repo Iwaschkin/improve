@@ -7,14 +7,12 @@ effort: S
 risk: LOW
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
   - AGENTS.md
   - CLAUDE.md
 dependencies: []
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -38,18 +36,6 @@ issue: null
 > Neither file exists at the planned base; both are expected to be created. If
 > either already exists with content, stop and report — merging with existing
 > agent instructions is a user decision.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: S
-- **Risk**: LOW
-- **Depends on**: none
-- **Category**: dx
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

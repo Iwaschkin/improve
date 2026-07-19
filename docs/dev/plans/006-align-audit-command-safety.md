@@ -7,7 +7,6 @@ effort: S
 risk: LOW
 category: security
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -17,7 +16,6 @@ scope:
   - README.md
 dependencies:
   - IMP-003
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -37,18 +35,6 @@ issue: null
 > **Drift check (run first)**: run
 > `git diff --stat 4adde10c1d1d6308c485b87efbbefb6a6a241785..HEAD -- skills/improve/SKILL.md skills/improve/references/audit-playbook.md skills/improve/references/plan-template.md README.md`.
 > Stop if IMP-003's trust profiles are not present.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: S
-- **Risk**: LOW
-- **Depends on**: `docs/dev/plans/003-adopt-trust-aware-execution-profiles.md`
-- **Category**: security
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

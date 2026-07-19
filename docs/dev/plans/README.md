@@ -20,7 +20,7 @@ Generated from plan frontmatter. Do not hand-edit this table; update the plan fi
 | IMP-012 | [Make root-cause discipline native to Improve](012-make-root-cause-discipline-native.md) | P1 | M | IMP-005, IMP-009 | TODO | - | - |
 | IMP-013 | [Add a manual cross-host conformance checklist](013-add-portability-conformance-checklist.md) | P2 | S | IMP-007, IMP-010, IMP-012 | TODO | - | - |
 
-Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
+Status values: TODO | EXECUTING | REVIEWED | DONE | BLOCKED | REJECTED
 
 ## Findings Considered and Rejected
 

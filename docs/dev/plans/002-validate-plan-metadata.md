@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -16,7 +15,6 @@ scope:
   - skills/improve/references/plan-template.md
   - .github/workflows/check.yml
 dependencies: []
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -38,18 +36,6 @@ issue: null
 > The test script does not exist at the planned base and is expected to be
 > created. Stop if the generator has already acquired a different schema or
 > parser library.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P1
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: none
-- **Category**: bug
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

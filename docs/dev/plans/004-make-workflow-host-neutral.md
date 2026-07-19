@@ -7,7 +7,6 @@ effort: L
 risk: MED
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -18,7 +17,6 @@ scope:
   - README.md
 dependencies:
   - IMP-003
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -40,18 +38,6 @@ issue: null
 > `host-compatibility.md` does not exist at the planned base and is expected to
 > be created. Stop if IMP-003 is not merged or its trust-profile terminology is
 > absent.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P1
-- **Effort**: L
-- **Risk**: MED
-- **Depends on**: `docs/dev/plans/003-adopt-trust-aware-execution-profiles.md`
-- **Category**: dx
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

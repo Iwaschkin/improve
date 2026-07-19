@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -19,7 +18,6 @@ scope:
   - scripts/generate_plan_index_tests.py
 dependencies:
   - IMP-010
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -40,18 +38,6 @@ issue: null
 > `plan_state.py` and `generate_plan_index_tests.py` do not exist at the planned
 > base. Stop unless IMP-010 is VERIFIED, then preserve its selected-directory
 > invariant and IMP-009's reviewer-owned transition boundary.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: IMP-010
-- **Category**: bug
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

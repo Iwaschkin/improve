@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -20,7 +19,6 @@ scope:
 dependencies:
   - IMP-002
   - IMP-008
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -43,18 +41,6 @@ issue: null
 > base. Stop unless IMP-002 (validated generator and fixture suite) and IMP-008
 > (final lifecycle schema) have landed, then reconcile this plan with their
 > final metadata schema and command policy before editing.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P1
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: IMP-002, IMP-008
-- **Category**: bug
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

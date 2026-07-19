@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: false
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -19,7 +18,6 @@ scope:
 dependencies:
   - IMP-005
   - IMP-009
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -43,21 +41,6 @@ issue: null
 > handoffs) and IMP-009 (reviewer-owned lifecycle and the five-field executor
 > report) are VERIFIED, then reconcile this plan with the final workflow
 > wording, plan template, and report contract before editing.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P1
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: IMP-005, IMP-009
-- **Category**: dx
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: false — at planning time the plan backlog and an
-  untracked reference folder (`skills/no-quick-fixes/`, see Current state) were
-  present; no tracked source file was modified. Refresh from a clean committed
-  baseline before automatic execution.
-- **Issue**: none
 
 ## Why this matters
 

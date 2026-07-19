@@ -7,7 +7,6 @@ effort: M
 risk: LOW
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -19,7 +18,6 @@ scope:
 dependencies:
   - IMP-003
   - IMP-004
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -40,18 +38,6 @@ issue: null
 > `git diff --stat 4adde10c1d1d6308c485b87efbbefb6a6a241785..HEAD -- skills/improve/SKILL.md skills/improve/references/closing-the-loop.md skills/improve/references/plan-template.md examples/001-extract-shadow-config-resolution.md README.md`.
 > Stop if IMP-003 or IMP-004 is not present, or if another change has already
 > replaced the Git command contract.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P1
-- **Effort**: M
-- **Risk**: LOW
-- **Depends on**: `docs/dev/plans/003-adopt-trust-aware-execution-profiles.md`, `docs/dev/plans/004-make-workflow-host-neutral.md`
-- **Category**: dx
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 

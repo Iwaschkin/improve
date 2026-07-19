@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: security
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
-working_tree_clean: true
 created_at: 2026-07-19
 updated_at: 2026-07-19
 scope:
@@ -16,7 +15,6 @@ scope:
   - skills/improve/references/plan-template.md
   - README.md
 dependencies: []
-execution_branch: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
@@ -39,18 +37,6 @@ issue: null
 > `git diff --stat 4adde10c1d1d6308c485b87efbbefb6a6a241785..HEAD -- skills/improve/SKILL.md skills/improve/references/closing-the-loop.md skills/improve/references/plan-template.md README.md`.
 > If any in-scope file changed, compare the excerpts below with the live files.
 > Stop if the policy has already been materially redesigned.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P1
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: none
-- **Category**: security
-- **Planned at**: commit `4adde10c1d1d6308c485b87efbbefb6a6a241785`, 2026-07-19
-- **Working tree clean**: true
-- **Issue**: none
 
 ## Why this matters
 
