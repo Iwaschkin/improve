@@ -18,3 +18,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: python scripts/check.py
+      - run: python scripts/check_tests.py
