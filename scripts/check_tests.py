@@ -114,7 +114,87 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool]:
     if name == "invalid-plugin-json":
         files[".claude-plugin/plugin.json"] = "{not json\n"
         return files, False
+    if name == "core-only-no-plugin":
+        del files[".claude-plugin/plugin.json"]
+        return files, True
+    if name == "core-plus-marketplace":
+        files[".claude-plugin/marketplace.json"] = json.dumps(
+            {
+                "name": "improve",
+                "owner": {"name": "Iwaschkin"},
+                "plugins": [{"name": "improve", "source": "./"}],
+            },
+            indent=2,
+        )
+        return files, True
+    if name == "marketplace-empty-owner":
+        files[".claude-plugin/marketplace.json"] = json.dumps(
+            {"name": "improve", "owner": {}, "plugins": [{"name": "improve", "source": "./"}]},
+            indent=2,
+        )
+        return files, False
+    if name == "marketplace-missing-plugin-entry":
+        files[".claude-plugin/marketplace.json"] = json.dumps(
+            {"name": "improve", "owner": {"name": "Iwaschkin"}, "plugins": []},
+            indent=2,
+        )
+        return files, False
+    if name == "marketplace-without-plugin":
+        del files[".claude-plugin/plugin.json"]
+        files[".claude-plugin/marketplace.json"] = json.dumps(
+            {"name": "improve", "owner": {"name": "Iwaschkin"}, "plugins": [{"name": "improve", "source": "./"}]},
+            indent=2,
+        )
+        return files, False
+    if name.startswith("name-valid-"):
+        skill_name = name.removeprefix("name-valid-")
+        return renamed_skill_files(skill_name), True
+    if name.startswith("name-invalid-"):
+        skill_name = INVALID_NAMES[name.removeprefix("name-invalid-")]
+        return renamed_skill_files(skill_name), False
+    if name == "variant-token-no-slash":
+        files["README.md"] = HOST_NEUTRAL_README
+        return files, True
+    if name == "oversized-skill":
+        files["skills/improve/SKILL.md"] = BASE_SKILL + ("filler line\n" * 500)
+        return files, False
     raise ValueError(f"unknown fixture {name}")
+
+
+INVALID_NAMES = {
+    "uppercase": "Improve",
+    "underscore": "im_prove",
+    "leading-hyphen": "-improve",
+    "trailing-hyphen": "improve-",
+    "double-hyphen": "im--prove",
+    "too-long": "a" * 65,
+}
+
+HOST_NEUTRAL_README = """# improve
+
+## Install
+
+```bash
+npx skills add Iwaschkin/improve
+```
+
+## Usage
+
+Invocation variants (spelled per host): `quick`, `deep`, `security`, `branch`,
+`next`, `plan`, `review-plan`, `execute`, `reconcile`, and `--issues`.
+"""
+
+
+def renamed_skill_files(skill_name: str) -> dict[str, str]:
+    """A fixture whose skill uses `skill_name` for both folder and frontmatter."""
+    files = base_files(skill_dir=skill_name)
+    files[f"skills/{skill_name}/SKILL.md"] = BASE_SKILL.replace(
+        "name: improve", f"name: {skill_name}"
+    )
+    plugin = dict(BASE_PLUGIN)
+    plugin["name"] = skill_name
+    files[".claude-plugin/plugin.json"] = json.dumps(plugin, indent=2)
+    return files
 
 
 def write_fixture(root: Path, files: dict[str, str]) -> None:
@@ -160,6 +240,23 @@ def main() -> int:
         "missing-variant",
         "empty-skill",
         "invalid-plugin-json",
+        "core-only-no-plugin",
+        "core-plus-marketplace",
+        "marketplace-empty-owner",
+        "marketplace-missing-plugin-entry",
+        "marketplace-without-plugin",
+        "name-valid-a",
+        "name-valid-1",
+        "name-valid-a1",
+        "name-valid-1-skill",
+        "name-invalid-uppercase",
+        "name-invalid-underscore",
+        "name-invalid-leading-hyphen",
+        "name-invalid-trailing-hyphen",
+        "name-invalid-double-hyphen",
+        "name-invalid-too-long",
+        "variant-token-no-slash",
+        "oversized-skill",
     ]
     with tempfile.TemporaryDirectory() as temp_dir:
         parent = Path(temp_dir)

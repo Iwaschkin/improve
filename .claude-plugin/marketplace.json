@@ -1,10 +1,10 @@
 {
   "name": "improve",
   "owner": {
-    "name": "shadcn"
+    "name": "Iwaschkin"
   },
   "metadata": {
-    "description": "Claude marketplace catalog for the improve plugin."
+    "description": "Claude Code marketplace adapter for the portable improve Agent Skill. The canonical skill lives in skills/improve/; this catalog is an optional installation route, not the source of workflow truth."
   },
   "plugins": [
     {

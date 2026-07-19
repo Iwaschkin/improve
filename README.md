@@ -16,6 +16,8 @@ other agent     →  implements, tests, ships    (cheap model, executes)
 npx skills add Iwaschkin/improve
 ```
 
+The canonical skill is the `skills/improve/` folder in this repository — copy it into whatever location your host reads skills from ([host-compatibility.md](skills/improve/references/host-compatibility.md) lists the documented per-host locations). The `.claude-plugin/` directory is an optional Claude Code marketplace adapter, not the source of workflow truth; the skill works without it. If you installed an earlier copy (including upstream `shadcn/improve`), re-install or update it — an outdated skill silently runs the old workflow.
+
 Audit and planning are portable across conforming [Agent Skills](https://agentskills.io) hosts with repository access. Automatic execution is supported only on documented host surfaces that provide a writable executor and an enforceable execution boundary appropriate to the selected profile — [skills/improve/references/host-compatibility.md](skills/improve/references/host-compatibility.md) maps each host. This fork is maintained at `Iwaschkin/improve` and is based on upstream `shadcn/improve`; the plans it writes are plain markdown, so any agent (or human) can pick them up.
 
 ## Compatibility
