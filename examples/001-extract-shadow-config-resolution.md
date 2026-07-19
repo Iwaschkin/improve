@@ -1,15 +1,15 @@
-> **Sample output.** A real plan produced by `/improve` against
-> [shadcn/ui](https://github.com/shadcn-ui/ui) at commit `1994caba0`
-> (2026-06-10), kept here as an example of the format. The codebase has
-> moved on — don't execute this; run `/improve` on your own repo instead.
-
 # Plan 001: Extract shared shadow-config resolution used by search and view
+
+Sample output. A real plan produced by `/improve` against
+[shadcn/ui](https://github.com/shadcn-ui/ui) at commit `1994caba0`
+(2026-06-10), kept here as an example of the format. The codebase has
+moved on — don't execute this; run `/improve` on your own repo instead.
 
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
 > report — do not improvise. When done, update the status row for this plan
-> in `plans/README.md`.
+> in `docs/dev/plans/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat 1994caba0..HEAD -- packages/shadcn/src/commands/search.ts packages/shadcn/src/commands/view.ts packages/shadcn/src/registry/config.ts`
 > If any of these changed since this plan was written, compare the
@@ -95,12 +95,14 @@ Run from the repo root.
 ## Scope
 
 **In scope** (the only files you should modify):
+
 - `packages/shadcn/src/registry/config.ts` (add the shared helper)
 - `packages/shadcn/src/registry/config.test.ts` (tests for it)
 - `packages/shadcn/src/commands/search.ts` (use it)
 - `packages/shadcn/src/commands/view.ts` (use it)
 
 **Out of scope** (do NOT touch, even though they look related):
+
 - `packages/shadcn/src/commands/init.ts` — builds config via prompts, not the shadow pattern; no duplication there.
 - `packages/shadcn/src/utils/get-config.ts` — `getConfig`/`createConfig` stay as-is; the helper composes them.
 - Any behavior change to how a *complete* `components.json` is resolved — both commands must behave identically to today when a full config exists.
@@ -155,7 +157,7 @@ Replace the block at ~36–55 with `resolveShadowConfig(options.cwd)` (no seed �
 - [ ] `grep -rn "TODO: We're duplicating logic for shadowConfig" packages/shadcn/src/` returns no matches (comment removed with the duplication)
 - [ ] Both `search.ts` and `view.ts` call `resolveShadowConfig`; neither contains an inline shadow-config block
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] `plans/README.md` status row updated
+- [ ] `docs/dev/plans/README.md` status row updated
 
 ## STOP conditions
 

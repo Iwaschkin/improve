@@ -11,17 +11,17 @@ The founding rule survives unchanged: **the advisor never edits source code.** I
 ### Preconditions (check all before dispatching)
 
 - The repo is a git repository (worktree isolation requires it). If not: stop and say so.
-- The plan file exists and its dependencies show DONE in `plans/README.md`. If not: stop, name the missing dependency.
+- The plan file exists and its dependencies show DONE in `docs/dev/plans/README.md`. If not: stop, name the missing dependency.
 - Run the plan's drift check yourself. If in-scope files changed since `Planned at`, reconcile the plan first (see below) — don't hand a stale plan to an executor.
 
 ### Dispatch
 
 Prepare a workspace-local disposable worktree before dispatching:
 
-1. Default root: `<repo root>/plans/.worktrees/`.
-1. Default path: `<repo root>/plans/.worktrees/<plan-id>-<slug>/`, where `<plan-id>-<slug>` comes from the plan filename without `.md`.
-1. For nested repos or multi-repo workspaces, still prefer the selected repo's own `<repo root>/plans/.worktrees/`. If a host API forces a workspace-level worktree root, prefix the folder name with the sanitized repo directory name.
-1. Before dispatch, create or maintain `<repo root>/plans/.gitignore` with a `.worktrees/` entry. Preserve existing lines and do not add duplicates. Do not edit the target repo's root `.gitignore` unless `plans/.gitignore` is impossible for that repo.
+1. Default root: `<repo root>/docs/dev/plans/.worktrees/`.
+1. Default path: `<repo root>/docs/dev/plans/.worktrees/<plan-id>-<slug>/`, where `<plan-id>-<slug>` comes from the plan filename without `.md`.
+1. For nested repos or multi-repo workspaces, still prefer the selected repo's own `<repo root>/docs/dev/plans/.worktrees/`. If a host API forces a workspace-level worktree root, prefix the folder name with the sanitized repo directory name.
+1. Before dispatch, create or maintain `<repo root>/docs/dev/plans/.gitignore` with a `.worktrees/` entry. Preserve existing lines and do not add duplicates. Do not edit the target repo's root `.gitignore` unless `docs/dev/plans/.gitignore` is impossible for that repo.
 1. If the host's worktree-isolation API lets the advisor specify a path, use the path above. If it does not, create the git worktree at that path yourself and launch the executor rooted there. Do not silently accept a sibling path outside the workspace.
 1. If the computed path would be outside the current workspace, or the advisor cannot create/use a workspace-local worktree, stop and hand the plan over for manual execution.
 
@@ -32,7 +32,7 @@ Dispatch exactly one executor in that worktree:
 
 The executor prompt must contain:
 
-1. **The full plan file text, inlined.** The worktree contains only committed files — if `plans/` is uncommitted, the executor can't read it. Never assume; always inline.
+1. **The full plan file text, inlined.** The worktree contains only committed files — if `docs/dev/plans/` is uncommitted, the executor can't read it. Never assume; always inline.
 1. The executor preamble:
 
 > You are the executor for the implementation plan below. Follow it step by
@@ -40,7 +40,7 @@ The executor prompt must contain:
 > moving on. Touch only the files listed as in scope. If any STOP condition
 > occurs, stop immediately and report. Do not improvise around obstacles.
 > Commit your work in the worktree following the plan's git workflow section.
-> One override: SKIP the plan's instruction to update `plans/README.md` —
+> One override: SKIP the plan's instruction to update `docs/dev/plans/README.md` —
 > your reviewer maintains the index. Before reporting, audit every claim in
 > your report against an actual tool result from this session — only report
 > what you can point to evidence for; if a verification failed or was
@@ -88,13 +88,13 @@ Running verification commands inside the executor's worktree is still fine — a
 
 ---
 
-## `reconcile` — keep `plans/` alive
+## `reconcile` — keep `docs/dev/plans/` alive
 
-Process what happened since the last session. Read `plans/README.md` and every plan file, then per status:
+Process what happened since the last session. Read `docs/dev/plans/README.md` and every plan file, then per status:
 
 - **DONE** — spot-check that the done criteria still hold on the current HEAD (cheap ones only). Mark verified in the index. Don't delete plan files — they're the record.
 - **BLOCKED** — read the reason. Investigate the underlying obstacle in the codebase. Either rewrite the plan around it (new number if the approach changed fundamentally, in-place refresh otherwise) or mark REJECTED with one line of rationale.
-- **IN PROGRESS** (stale) — flag it to the user; an executor probably died mid-run. Check the default `plans/.worktrees/` location for a stale executor worktree if one exists.
+- **IN PROGRESS** (stale) — flag it to the user; an executor probably died mid-run. Check the default `docs/dev/plans/.worktrees/` location for a stale executor worktree if one exists.
 - **TODO** — run the drift check. If drifted: re-verify the finding still exists (it may have been fixed in passing), then refresh the "Current state" excerpts and `Planned at` SHA. If the finding is gone, mark REJECTED ("fixed independently").
 
 Finish with a short report: what's verified done, what was refreshed, what's rejected, and what's executable right now.
