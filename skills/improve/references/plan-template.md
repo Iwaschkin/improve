@@ -24,27 +24,18 @@ effort: S | M | L
 risk: LOW | MED | HIGH
 category: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
 base_commit: <full 40-character SHA>
-working_tree_clean: true | false
 created_at: <YYYY-MM-DD>
 updated_at: <YYYY-MM-DD>
 scope:
   - <in-scope path>
 dependencies: []
-execution_branch: null
-execution_base: null
-execution_profile: null
 execution_locator: null
-executor_head: null
+execution_base: null
 reviewed_commit: null
 merged_commit: null
-target_branch: null
-integration_method: null
-integration_evidence: []
 verified_at: null
 superseded_by: null
-verification_environment: null
 status_note: null
-skill_version: null
 sensitive: false
 issue: null
 ---
@@ -52,54 +43,29 @@ issue: null
 ## Plan NNN: <Imperative title — what will be true after this plan>
 
 > **Executor instructions**: Follow this plan step by step. Run every
-> verification command permitted by the execution environment and confirm the
-> expected result before moving to the next step. If repository-code execution
-> is not permitted, skip those commands and report that they were not run. If
+> verification command your dispatch permits and confirm the expected result
+> before moving to the next step; if repository-code execution is not
+> permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
 > improvise. For corrective plans: observe the stated condition before
-> changing anything; fix the owning layer named below; verify the cause is
-> absent afterward; remove the paths the fix made obsolete; and add no
-> suppression, swallowed error, weakened type or test, retry/sleep/timeout,
-> special case, hardcoding, or compatibility shim this plan does not
-> explicitly justify. If the causal chain below is disproved, or the correct
-> fix requires an owner outside this plan's scope, STOP and report — never
-> silence the symptom to reach COMPLETE. When finished, report STATUS, HEAD
-> SHA, FILES CHANGED,
-> VERIFICATION RESULTS, and NOTES. This plan's YAML frontmatter and the
-> generated plan index are reviewer-owned control-plane records — do not
-> modify either; the reviewer records lifecycle transitions and regenerates
-> the index after reviewing your evidence. Index generation is a projection —
-> it never gates the implementation itself.
+> changing anything, fix the owning layer named below, verify the cause is
+> absent afterward, and add no suppression, weakened test, retry, special
+> case, or shim this plan does not explicitly justify — if the causal chain
+> below is disproved, STOP and report rather than silencing the symptom.
+> When finished, report STATUS, HEAD SHA, FILES CHANGED, VERIFICATION
+> RESULTS, and NOTES. This plan's YAML frontmatter and the generated plan
+> index are reviewer-owned — do not modify either.
 >
-> **Drift check (run first)**: `git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`
+> **Drift check (run first)**: `git diff --stat <base_commit>..HEAD -- <in-scope paths>`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
 
-## Status
-
-The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; the reviewer that owns lifecycle transitions reruns the bundled `resources/generate_plan_index.py` helper after status changes — executors never write these records.
-
-- **Status**: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
-- **Priority**: P1 | P2 | P3
-- **Effort**: S | M | L
-- **Risk**: LOW | MED | HIGH
-- **Depends on**: <selected-plans-dir>/NNN-*.md (or "none")
-- **Category**: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
-- **Planned at**: commit `<full 40-character SHA>`, <YYYY-MM-DD>
-- **Working tree clean**: true | false (automatic `execute` requires true)
-- **Execution profile**: trusted-local | strict | manual (record when execution starts; omit until then)
-- **Execution locator**: worktree path, remote task id, branch, or PR URL (set when execution starts; omit until then)
-- **Execution base**: `<full 40-character SHA>` (set when execution starts; omit until then)
-- **Executor head**: `<full 40-character SHA>` (set from the executor report; omit until then)
-- **Reviewed commit**: `<full 40-character SHA>` (set when reviewer approves; omit until then)
-- **Merged commit**: `<full 40-character SHA>` — the actual target-branch commit at which the reviewed change is integrated, which for squash/cherry-pick/rebase differs from the reviewed commit (set during reconcile; omit until then)
-- **Target branch / Integration method**: branch plus direct | merge | cherry-pick | squash | rebase | tree-equivalent, with concise evidence in `integration_evidence` (set during reconcile; omit until then)
-- **Verified at**: UTC timestamp `YYYY-MM-DDTHH:MM:SSZ` (set when acceptance checks pass at the merged commit; omit until then)
-- **Superseded by**: IMP-NNN (SUPERSEDED plans only)
-- **Verification environment**: restricted-sandbox | host-approval-policy | user-confirmed-normal-account | not-run | unknown (set when verification runs; omit until then)
-- **Status note**: one line — required for BLOCKED / REJECTED / ABANDONED / SUPERSEDED, omit otherwise
-- **Issue**: <GitHub issue URL — only when published via `--issues`; omit otherwise>
+Lifecycle: status moves TODO → EXECUTING → REVIEWED → DONE (or BLOCKED /
+REJECTED), written only by the advisor/reviewer, with the execution fields
+filled in as each transition happens. The generated index is the
+human-readable projection of this frontmatter — plans carry no duplicate
+status section.
 
 ## Why this matters
 
@@ -162,24 +128,14 @@ passes because the cause is absent.
 
 ## Commands you will need
 
-| Purpose   | Command                  | Provenance | Execution class | Expected on success |
-|-----------|--------------------------|------------|-----------------|---------------------|
-| Install   | `pnpm install`           | package manager docs / CI / not run | PACKAGE_INSTALL | exit 0 |
-| Typecheck | `pnpm typecheck`         | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0, no errors |
-| Tests     | `pnpm test -- <filter>`  | package script / CI / not run | EXECUTES_REPOSITORY_CODE | all pass |
-| Lint      | `pnpm lint`              | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0 |
+| Purpose   | Command                  | Provenance | Expected on success |
+|-----------|--------------------------|------------|---------------------|
+| Install   | `pnpm install`           | package manager docs / CI / not run | exit 0 |
+| Typecheck | `pnpm typecheck`         | package script / CI / not run | exit 0, no errors |
+| Tests     | `pnpm test -- <filter>`  | package script / CI / not run | all pass |
+| Lint      | `pnpm lint`              | package script / CI / not run | exit 0 |
 
-Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class lists the command's *effects* — one or more of, comma-separated:
-
-- `STATIC_READ` — reads files/configuration without executing repository code.
-- `GIT_READ` — read-only Git operation.
-- `NETWORK_ACCESS` — sends or receives data over a network.
-- `MAY_WRITE_CACHE` — may write ignored/local cache state.
-- `EXECUTES_REPOSITORY_CODE` — imports, builds, tests, lints, or invokes scripts, plugins, hooks, or binaries controlled by the repository or its dependencies.
-- `PACKAGE_INSTALL` — resolves/downloads packages and may run lifecycle hooks.
-- `HOST_MUTATION` — changes external services, system state, production data, Git remotes, or durable host configuration.
-
-The class records what a command does, not permission. Permission follows the riskiest listed effect, the selected execution profile, and the host's actual enforcement. Names prove nothing: a tool named `check` may execute repository code, while an advisory query may use a package manager without running any script. Presume install, build, test, lint, framework-CLI, and package-script commands execute repository-controlled code unless there is concrete evidence otherwise.
+Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Names prove nothing: a tool named `check` may execute repository code. Presume install, build, test, lint, framework-CLI, and package-script commands execute repository-controlled code unless there is concrete evidence otherwise; whether they may run follows the trust rule in [closing-the-loop.md](closing-the-loop.md).
 
 ## Suggested executor toolkit
 
@@ -291,33 +247,11 @@ For the human/agent who owns this code after the change lands:
 
 Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper requires Python 3.10+: find an interpreter with `python3 --version` where that name is conventional, otherwise `python --version`, and accept only 3.10 or newer. Invoke the helper by the path of the currently loaded skill's `resources/` directory — never a guessed global install path. If no compatible interpreter or helper path is available, leave the plan files as they are and report that index generation is pending; the index never blocks the implementation.
 
-The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, unresolved or out-of-order dependencies, and impossible lifecycle states (a REVIEWED plan without an executor head, a VERIFIED plan whose verification never ran, a BLOCKED plan without a `status_note`) fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
+The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, unresolved or out-of-order dependencies, and impossible lifecycle states (a REVIEWED plan without a reviewed commit, a DONE plan without a merged commit and `verified_at`, a BLOCKED plan without a `status_note`) fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun. The same helper is the execution-eligibility gate: `--check-executable IMP-NNN` exits 0 only when the plan is TODO and every direct and transitive dependency is DONE.
 
-The generated index renders three sections: the main status table (with status notes, issue URLs, and a `(sensitive)` marker on plans that must not be published without the confirmation flow), an `Execution & Verification Details` table for any plan with execution state, and a `Findings Considered and Rejected` section sourced from an optional `rejections.json` beside the plans — a JSON array of objects with exactly `id` (the audit's `[CATEGORY-NN]` finding identifier), `title`, `rationale`, `evidence` (list of `file:line` strings, may be empty), and `recorded_at` (`YYYY-MM-DD`). Write rejections there, never by hand-editing the generated index; an invalid `rejections.json` fails generation and preserves the previous index.
+The generated index renders the main status table (with status notes, issue URLs, and a `(sensitive)` marker on plans that must not be published without the confirmation flow), a compact execution-record line for any plan with execution state, and a `Findings Considered and Rejected` section sourced from an optional `rejections.json` beside the plans — a JSON array of objects with exactly `id` (the audit's `[CATEGORY-NN]` finding identifier), `title`, `rationale`, `evidence` (list of `file:line` strings, may be empty), and `recorded_at` (`YYYY-MM-DD`). Write rejections there, never by hand-editing the generated index; an invalid `rejections.json` fails generation and preserves the previous index.
 
-```markdown
-# Implementation Plans
-
-Generated from plan frontmatter. Do not hand-edit this table; update the plan
-file and rerun the bundled `resources/generate_plan_index.py` helper.
-
-## Execution order & status
-
-| Plan | Title | Priority | Effort | Depends on | Status | Execution base | Reviewed commit | Merged commit |
-|------|-------|----------|--------|------------|--------|----------------|-----------------|---------------|
-| 001  | ...   | P1       | S      | —          | TODO   | —              | —               | —             |
-| 002  | ...   | P1       | M      | 001        | TODO   | —              | —               | —             |
-
-Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned) | ABANDONED | SUPERSEDED
-
-## Dependency notes
-
-- 002 requires 001 because <reason>.
-
-## Findings considered and rejected
-
-- <finding>: not worth doing because <one line>. (So nobody re-audits it.)
-```
+Status values: TODO | EXECUTING | REVIEWED | DONE | BLOCKED | REJECTED.
 
 ## Quality bar — check before finishing each plan
 
@@ -328,4 +262,4 @@ Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED (with o
 - Are the STOP conditions specific to this plan's actual risks, not boilerplate?
 - Would a reviewer reading only "Why this matters" + "Done criteria" understand what they're approving?
 - No secret values anywhere in the file — locations and credential types only.
-- "Planned at" SHA is filled in and the in-scope paths in the drift check match the Scope section.
+- `base_commit` is filled in and the in-scope paths in the drift check match the Scope section.
