@@ -5,9 +5,9 @@ An agent skill that audits any codebase and writes implementation plans for othe
 The idea: use your most capable model for the part where intelligence compounds — understanding the codebase, judging what's worth doing, writing the spec — and hand execution to cheaper models. The skill never implements anything itself. The plan is the product.
 
 ```text
-you          →  /improve                    (expensive model, advises)
-plans/       →  001-fix-n-plus-one.md       (self-contained specs)
-other agent  →  implements, tests, ships    (cheap model, executes)
+you             →  /improve                    (expensive model, advises)
+docs/dev/plans/ →  001-fix-n-plus-one.md       (self-contained specs)
+other agent     →  implements, tests, ships    (cheap model, executes)
 ```
 
 ## Install
@@ -40,8 +40,8 @@ A typical first run, start to finish:
 
 1. Open your agent in the repo and run `/improve` (or `/improve quick` to keep it cheap).
 2. It maps the repo, audits it, and comes back with a findings table. Reply with the ones you want planned — "plan 1, 3 and 5".
-3. Plans land in `plans/` — one file each, plus an index with the recommended order. Read them; they're meant to be reviewed.
-4. Hand a plan to any agent ("implement plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews the diff against the plan before running it, and reports back with the worktree path, branch, and verdict. Merging stays up to you.
+3. Plans land in `docs/dev/plans/` — one file each, plus an index with the recommended order. Read them; they're meant to be reviewed.
+4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews the diff against the plan before running it, and reports back with the worktree path, branch, and verdict. Merging stays up to you.
 5. Next session, run `/improve reconcile` to clean up the backlog: verify what landed, refresh what drifted, unblock what got stuck.
 
 Before a PR, `/improve branch` does the same thing scoped to just what your branch changes.
@@ -79,7 +79,7 @@ Picking #1 produced [this plan](./examples/001-extract-shadow-config-resolution.
 
 **Prioritize.** Findings land in a table ordered by leverage (impact ÷ effort, weighted by confidence). You pick what becomes plans.
 
-**Plan.** One file per selected finding, written into `plans/` with an index, priority order, and dependency graph.
+**Plan.** One file per selected finding, written into `docs/dev/plans/` with an index, priority order, and dependency graph.
 
 ## What makes the plans executable
 
@@ -101,7 +101,7 @@ Plans aren't fire-and-forget:
 
 ## Hard rules
 
-- Never modifies source code itself. The only writes go to `plans/`; executor worktrees are disposable and ignored under `plans/.worktrees/` by default, executors edit only there, and merging is always yours.
+- Never modifies source code itself. The only writes go to `docs/dev/plans/`; executor worktrees are disposable and ignored under `docs/dev/plans/.worktrees/` by default, executors edit only there, and merging is always yours.
 - Never runs commands that mutate your working tree — read, search, and read-only analysis only.
 - Never reproduces secret values. Locations and credential types only, rotation always recommended.
 - Asked to implement? It declines and points at the plan (or offers `execute`).

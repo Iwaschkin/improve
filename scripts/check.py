@@ -76,10 +76,14 @@ else:
                 name_match = m.group(1).strip()
                 break
         if name_match != "improve":
-            fail(f"check1: SKILL.md frontmatter name is {name_match!r}, expected 'improve'")
+            fail(
+                f"check1: SKILL.md frontmatter name is {name_match!r}, expected 'improve'"
+            )
         else:
             if has_name and has_desc:
-                ok("check1: SKILL.md frontmatter valid (name='improve', description present)")
+                ok(
+                    "check1: SKILL.md frontmatter valid (name='improve', description present)"
+                )
 
 # Store frontmatter name and metadata version for later checks
 _skill_name = None
@@ -141,19 +145,25 @@ if plugin is not None:
 # ---------------------------------------------------------------------------
 # Check 3: Relative links resolve in all *.md files
 # ---------------------------------------------------------------------------
-# Skips .git/ and plans/ directories.
+# Skips .git/ and generated plan output directories.
 # Skips links inside fenced code blocks (``` ... ```).
 # Strips #fragment from targets.
 
 INLINE_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)#\s]+)(?:#[^)]*)?\)")
 
 link_failures: list[str] = []
+generated_plan_dirs = {
+    os.path.join(REPO_ROOT, "docs", "dev", "plans"),
+    os.path.join(REPO_ROOT, "docs", "dev", "advisor-plans"),
+}
 
 for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
-    # Skip .git and plans directories
+    # Skip .git and generated plan output directories
     dirnames[:] = [
-        d for d in dirnames
-        if d not in (".git", "plans")
+        d
+        for d in dirnames
+        if d != ".git"
+        and os.path.join(dirpath, d) not in generated_plan_dirs
         and not os.path.join(dirpath, d).startswith(os.path.join(REPO_ROOT, ".git"))
     ]
 
@@ -215,7 +225,17 @@ if not link_failures:
 # Check 4: Invocation variant parity between README.md and SKILL.md
 # ---------------------------------------------------------------------------
 
-VARIANTS = {"quick", "deep", "branch", "next", "plan", "review-plan", "execute", "reconcile", "--issues"}
+VARIANTS = {
+    "quick",
+    "deep",
+    "branch",
+    "next",
+    "plan",
+    "review-plan",
+    "execute",
+    "reconcile",
+    "--issues",
+}
 
 README_PATH = os.path.join(REPO_ROOT, "README.md")
 
