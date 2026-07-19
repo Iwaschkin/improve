@@ -132,7 +132,9 @@ def render_index(rows: list[dict[str, PlanValue]]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate docs/dev/plans/README.md")
-    parser.add_argument("--plans-dir", default=str(DEFAULT_PLANS_DIR), help="plan directory")
+    parser.add_argument(
+        "--plans-dir", default=str(DEFAULT_PLANS_DIR), help="plan directory"
+    )
     args = parser.parse_args()
     plans_dir = Path(args.plans_dir)
     plans_dir.mkdir(parents=True, exist_ok=True)
