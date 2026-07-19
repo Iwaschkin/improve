@@ -16,16 +16,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
-import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, TypeAlias, cast
 
-DEFAULT_PLANS_DIR = Path.cwd() / "docs" / "dev" / "plans"
 PlanValue: TypeAlias = str | bool | list[str] | None
 
 PLAN_FILENAME_RE = re.compile(r"^(\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
