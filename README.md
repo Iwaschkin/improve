@@ -127,7 +127,7 @@ Plans aren't fire-and-forget:
 ## Hard rules
 
 - Never modifies source code itself. The only writes go to `docs/dev/plans/`; executor worktrees are disposable and ignored under `docs/dev/plans/.worktrees/` by default, executors edit only there, and merging is always yours.
-- Never runs commands that mutate your working tree; repository-code commands run under the selected execution profile — your host's normal policy for trusted-local repos, an enforceable sandbox for strict, and explicit authorization for high-risk effects everywhere.
+- Never runs commands that mutate your working tree. Commands are classified by their actual effects (read, network, repository-code execution, install, host mutation) — never by name — and permission follows the riskiest effect under the selected execution profile: your host's normal policy for trusted-local repos, an enforceable sandbox for strict, and explicit authorization for high-risk effects everywhere.
 - Never reproduces secret values. Locations and credential types only, rotation always recommended.
 - Asked to implement? It declines and points at the plan (or offers `execute`).
 

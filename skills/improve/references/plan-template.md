@@ -109,7 +109,17 @@ The facts the executor needs, inlined — never "as discussed" or "see audit":
 | Tests     | `pnpm test -- <filter>`  | package script / CI / not run | EXECUTES_REPOSITORY_CODE | all pass |
 | Lint      | `pnpm lint`              | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0 |
 
-Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class should be one of: STATIC_READ, GIT_READ, EXECUTES_REPOSITORY_CODE, MAY_WRITE_CACHE, NETWORK_ACCESS, PACKAGE_INSTALL, HOST_MUTATION. The class records what a command does, not permission: whether it may actually run is decided at execution time by the selected execution profile and the host's permission policy.
+Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class lists the command's *effects* — one or more of, comma-separated:
+
+- `STATIC_READ` — reads files/configuration without executing repository code.
+- `GIT_READ` — read-only Git operation.
+- `NETWORK_ACCESS` — sends or receives data over a network.
+- `MAY_WRITE_CACHE` — may write ignored/local cache state.
+- `EXECUTES_REPOSITORY_CODE` — imports, builds, tests, lints, or invokes scripts, plugins, hooks, or binaries controlled by the repository or its dependencies.
+- `PACKAGE_INSTALL` — resolves/downloads packages and may run lifecycle hooks.
+- `HOST_MUTATION` — changes external services, system state, production data, Git remotes, or durable host configuration.
+
+The class records what a command does, not permission. Permission follows the riskiest listed effect, the selected execution profile, and the host's actual enforcement. Names prove nothing: a tool named `check` may execute repository code, while an advisory query may use a package manager without running any script. Presume install, build, test, lint, framework-CLI, and package-script commands execute repository-controlled code unless there is concrete evidence otherwise.
 
 ## Suggested executor toolkit
 
