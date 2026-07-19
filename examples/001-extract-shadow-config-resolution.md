@@ -124,6 +124,12 @@ Run from the repo root. This sample records command provenance but did not execu
 
 ## Scope
 
+Default size limits for this executable plan:
+
+- One behavioral objective: extract and reuse shadow-config resolution.
+- No more than the 4 in-scope files below.
+- No broad rewrite or unrelated cleanup.
+
 **In scope** (the only files you should modify):
 
 - `packages/shadcn/src/registry/config.ts` (add the shared helper)
@@ -196,6 +202,7 @@ Stop and report back (do not improvise) if:
 - The code at the locations above doesn't match the excerpts (drift since `1994caba0`).
 - The seeding difference between search (`style: "new-york"`, cwd resolved paths) and view (bare defaults) turns out to be load-bearing in a way the `seed` parameter can't express — i.e. tests fail unless the helper grows command-specific branches.
 - Removing the block from either command requires touching files outside the in-scope list.
+- The implementation expands beyond the 4 in-scope files or becomes a broad command rewrite instead of a helper extraction.
 
 ## Maintenance notes
 

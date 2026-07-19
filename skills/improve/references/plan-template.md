@@ -116,6 +116,13 @@ executor's environment. Skip the section otherwise.)
 
 ## Scope
 
+Default size limits for executable plans:
+
+- One behavioral objective.
+- Prefer no more than 7 in-scope files.
+- No broad rewrites, multi-package migrations, or unrelated cleanup.
+- If the work exceeds those limits, split it into dependency-ordered plans before execution.
+
 **In scope** (the only files you should modify):
 - `src/orders/api.ts`
 - `src/orders/api.test.ts` (create)
@@ -175,6 +182,7 @@ Stop and report back (do not improvise) if:
   (the codebase has drifted since this plan was written).
 - A step's verification fails twice after a reasonable fix attempt.
 - The fix appears to require touching an out-of-scope file.
+- The fix appears to exceed the plan's size limits (more than 7 in-scope files, a broad rewrite, or a multi-package migration not explicitly planned).
 - You discover the assumption "<key assumption>" is false.
 
 ## Maintenance notes

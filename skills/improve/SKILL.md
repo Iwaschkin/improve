@@ -100,6 +100,8 @@ Before writing anything: record `git rev-parse HEAD` and `git status --porcelain
 
 Write each plan with YAML frontmatter matching the template: `id`, `title`, `status`, `priority`, `effort`, `risk`, `category`, `base_commit`, `working_tree_clean`, `created_at`, `updated_at`, `scope`, `dependencies`, execution/review/merge commit fields, `sensitive`, and `issue`. Keep the human-readable Status section in sync until the generated index owns that projection.
 
+Keep each plan small enough for a weaker executor: one behavioral objective, preferably no more than 7 in-scope files, no broad rewrites, and no multi-package migration unless the plan is explicitly a design/spike. If a finding needs more, split it into dependency-ordered plans (for example: characterization tests, then refactor, then cleanup). Record scope limits in the plan and make exceeding them a STOP condition.
+
 Write each plan **for the weakest plausible executor**. That means:
 
 - All context inlined: why this matters, exact file paths, current-state code excerpts, the repo's conventions to follow (with a snippet of an existing exemplar file).
