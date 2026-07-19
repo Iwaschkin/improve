@@ -1,4 +1,30 @@
-# Plan 001: Extract shared shadow-config resolution used by search and view
+---
+id: IMP-001
+title: Extract shared shadow-config resolution used by search and view
+status: TODO
+priority: P2
+effort: M
+risk: MED
+category: tech-debt
+base_commit: 1994caba0
+working_tree_clean: true
+created_at: 2026-06-10
+updated_at: 2026-06-10
+scope:
+  - packages/shadcn/src/registry/config.ts
+  - packages/shadcn/src/registry/config.test.ts
+  - packages/shadcn/src/commands/search.ts
+  - packages/shadcn/src/commands/view.ts
+dependencies: []
+execution_branch: null
+execution_base: null
+reviewed_commit: null
+merged_commit: null
+sensitive: false
+issue: null
+---
+
+## Plan 001: Extract shared shadow-config resolution used by search and view
 
 Sample output. A real plan produced by `/improve` against
 [shadcn/ui](https://github.com/shadcn-ui/ui) at commit `1994caba0`
@@ -6,10 +32,12 @@ Sample output. A real plan produced by `/improve` against
 moved on — don't execute this; run `/improve` on your own repo instead.
 
 > **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. If anything in the "STOP conditions" section occurs, stop and
-> report — do not improvise. When done, update the status row for this plan
-> in `docs/dev/plans/README.md`.
+> verification command permitted by the execution environment and confirm the
+> expected result before moving to the next step. If repository-code execution
+> is not permitted, skip those commands and report that they were not run. If
+> anything in the "STOP conditions" section occurs, stop and report — do not
+> improvise. When finished, update this plan's YAML frontmatter and run
+> the bundled `resources/generate_plan_index.py` helper.
 >
 > **Drift check (run first)**: `git diff --stat 1994caba0..HEAD -- packages/shadcn/src/commands/search.ts packages/shadcn/src/commands/view.ts packages/shadcn/src/registry/config.ts`
 > If any of these changed since this plan was written, compare the
@@ -18,12 +46,14 @@ moved on — don't execute this; run `/improve` on your own repo instead.
 
 ## Status
 
+- **Status**: TODO
 - **Priority**: P2
 - **Effort**: M
 - **Risk**: MED
 - **Depends on**: none
 - **Category**: tech-debt
 - **Planned at**: commit `1994caba0`, 2026-06-10
+- **Working tree clean**: true
 
 ## Why this matters
 
@@ -84,15 +114,21 @@ try {
 
 ## Commands you will need
 
-| Purpose   | Command                          | Expected on success |
-|-----------|----------------------------------|---------------------|
-| Install   | `pnpm install`                   | exit 0              |
-| Tests     | `pnpm shadcn:test`               | all pass            |
-| Lint+types| `pnpm check`                     | exit 0              |
+| Purpose | Command | Provenance | Execution class | Expected on success |
+| ------- | ------- | ---------- | --------------- | ------------------- |
+| Install | `pnpm install` | package manager / not run in sample | PACKAGE_INSTALL | exit 0 |
+| Tests | `pnpm shadcn:test` | package script / not run in sample | EXECUTES_REPOSITORY_CODE | all pass |
+| Lint+types | `pnpm check` | package script / not run in sample | EXECUTES_REPOSITORY_CODE | exit 0 |
 
-Run from the repo root.
+Run from the repo root. This sample records command provenance but did not execute these commands in the `improve` repository.
 
 ## Scope
+
+Default size limits for this executable plan:
+
+- One behavioral objective: extract and reuse shadow-config resolution.
+- No more than the 4 in-scope files below.
+- No broad rewrite or unrelated cleanup.
 
 **In scope** (the only files you should modify):
 
@@ -157,7 +193,7 @@ Replace the block at ~36–55 with `resolveShadowConfig(options.cwd)` (no seed �
 - [ ] `grep -rn "TODO: We're duplicating logic for shadowConfig" packages/shadcn/src/` returns no matches (comment removed with the duplication)
 - [ ] Both `search.ts` and `view.ts` call `resolveShadowConfig`; neither contains an inline shadow-config block
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] `docs/dev/plans/README.md` status row updated
+- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
 
 ## STOP conditions
 
@@ -166,6 +202,7 @@ Stop and report back (do not improvise) if:
 - The code at the locations above doesn't match the excerpts (drift since `1994caba0`).
 - The seeding difference between search (`style: "new-york"`, cwd resolved paths) and view (bare defaults) turns out to be load-bearing in a way the `seed` parameter can't express — i.e. tests fail unless the helper grows command-specific branches.
 - Removing the block from either command requires touching files outside the in-scope list.
+- The implementation expands beyond the 4 in-scope files or becomes a broad command rewrite instead of a helper extraction.
 
 ## Maintenance notes
 

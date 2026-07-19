@@ -15,14 +15,39 @@ File naming: `docs/dev/plans/NNN-short-slug.md`, numbered in recommended executi
 ## Template
 
 ```markdown
-# Plan NNN: <Imperative title — what will be true after this plan>
+---
+id: IMP-NNN
+title: <Imperative title — what will be true after this plan>
+status: TODO
+priority: P1 | P2 | P3
+effort: S | M | L
+risk: LOW | MED | HIGH
+category: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
+base_commit: <full 40-character SHA>
+working_tree_clean: true | false
+created_at: <YYYY-MM-DD>
+updated_at: <YYYY-MM-DD>
+scope:
+  - <in-scope path>
+dependencies: []
+execution_branch: null
+execution_base: null
+reviewed_commit: null
+merged_commit: null
+sensitive: false
+issue: null
+---
+
+## Plan NNN: <Imperative title — what will be true after this plan>
 
 > **Executor instructions**: Follow this plan step by step. Run every
-> verification command and confirm the expected result before moving to the
-> next step. If anything in the "STOP conditions" section occurs, stop and
-> report — do not improvise. When done, update the status row for this plan
-> in `docs/dev/plans/README.md` — unless a reviewer dispatched you and told you they
-> maintain the index.
+> verification command permitted by the execution environment and confirm the
+> expected result before moving to the next step. If repository-code execution
+> is not permitted, skip those commands and report that they were not run. If
+> anything in the "STOP conditions" section occurs, stop and report — do not
+> improvise. When finished, update this plan's YAML frontmatter and run
+> the bundled `resources/generate_plan_index.py` helper — unless a reviewer dispatched you
+> and told you they maintain the generated index.
 >
 > **Drift check (run first)**: `git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`
 > If any in-scope file changed since this plan was written, compare the
@@ -31,12 +56,19 @@ File naming: `docs/dev/plans/NNN-short-slug.md`, numbered in recommended executi
 
 ## Status
 
+The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; run the bundled `resources/generate_plan_index.py` helper after status changes.
+
+- **Status**: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
 - **Priority**: P1 | P2 | P3
 - **Effort**: S | M | L
 - **Risk**: LOW | MED | HIGH
 - **Depends on**: docs/dev/plans/NNN-*.md (or "none")
 - **Category**: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
-- **Planned at**: commit `<short SHA>`, <YYYY-MM-DD>
+- **Planned at**: commit `<full 40-character SHA>`, <YYYY-MM-DD>
+- **Working tree clean**: true | false (automatic `execute` requires true)
+- **Execution base**: `<full 40-character SHA>` (set when execution starts; omit until then)
+- **Reviewed commit**: `<full 40-character SHA>` (set when reviewer approves; omit until then)
+- **Merged commit**: `<full 40-character SHA>` (set when reachable from target branch; omit until then)
 - **Issue**: <GitHub issue URL — only when published via `--issues`; omit otherwise>
 
 ## Why this matters
@@ -64,14 +96,14 @@ The facts the executor needs, inlined — never "as discussed" or "see audit":
 
 ## Commands you will need
 
-| Purpose   | Command                  | Expected on success |
-|-----------|--------------------------|---------------------|
-| Install   | `pnpm install`           | exit 0              |
-| Typecheck | `pnpm typecheck`         | exit 0, no errors   |
-| Tests     | `pnpm test -- <filter>`  | all pass            |
-| Lint      | `pnpm lint`              | exit 0              |
+| Purpose   | Command                  | Provenance | Execution class | Expected on success |
+|-----------|--------------------------|------------|-----------------|---------------------|
+| Install   | `pnpm install`           | package manager docs / CI / not run | PACKAGE_INSTALL | exit 0 |
+| Typecheck | `pnpm typecheck`         | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0, no errors |
+| Tests     | `pnpm test -- <filter>`  | package script / CI / not run | EXECUTES_REPOSITORY_CODE | all pass |
+| Lint      | `pnpm lint`              | package script / CI / not run | EXECUTES_REPOSITORY_CODE | exit 0 |
 
-(Exact commands from this repo — verified during recon, not guessed.)
+Use exact commands from this repo, not guesses. For each command, state whether it was discovered in configuration, observed in CI, actually executed by the advisor, or not executed for safety reasons. Execution class should be one of: STATIC_READ, GIT_READ, EXECUTES_REPOSITORY_CODE, MAY_WRITE_CACHE, NETWORK_ACCESS, PACKAGE_INSTALL, HOST_MUTATION.
 
 ## Suggested executor toolkit
 
@@ -83,6 +115,13 @@ executor's environment. Skip the section otherwise.)
 - Reference docs worth reading before starting, by path or URL.
 
 ## Scope
+
+Default size limits for executable plans:
+
+- One behavioral objective.
+- Prefer no more than 7 in-scope files.
+- No broad rewrites, multi-package migrations, or unrelated cleanup.
+- If the work exceeds those limits, split it into dependency-ordered plans before execution.
 
 **In scope** (the only files you should modify):
 - `src/orders/api.ts`
@@ -133,7 +172,7 @@ Machine-checkable. ALL must hold:
 - [ ] `pnpm test` exits 0; new tests for <X> exist and pass
 - [ ] `grep -rn "<old pattern>" src/` returns no matches
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] `docs/dev/plans/README.md` status row updated
+- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
 
 ## STOP conditions
 
@@ -143,6 +182,7 @@ Stop and report back (do not improvise) if:
   (the codebase has drifted since this plan was written).
 - A step's verification fails twice after a reasonable fix attempt.
 - The fix appears to require touching an out-of-scope file.
+- The fix appears to exceed the plan's size limits (more than 7 in-scope files, a broad rewrite, or a multi-package migration not explicitly planned).
 - You discover the assumption "<key assumption>" is false.
 
 ## Maintenance notes
@@ -159,23 +199,22 @@ For the human/agent who owns this code after the change lands:
 
 ## Index file: `docs/dev/plans/README.md`
 
-Written once by the advisor after all plans, updated by executors:
+Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper:
 
 ```markdown
 # Implementation Plans
 
-Generated by the improve skill on <date>. Execute in the order below unless
-dependencies say otherwise. Each executor: read the plan fully before starting,
-honor its STOP conditions, and update your row when done.
+Generated from plan frontmatter. Do not hand-edit this table; update the plan
+file and rerun the bundled `resources/generate_plan_index.py` helper.
 
 ## Execution order & status
 
-| Plan | Title | Priority | Effort | Depends on | Status |
-|------|-------|----------|--------|------------|--------|
-| 001  | ...   | P1       | S      | —          | TODO   |
-| 002  | ...   | P1       | M      | 001        | TODO   |
+| Plan | Title | Priority | Effort | Depends on | Status | Execution base | Reviewed commit | Merged commit |
+|------|-------|----------|--------|------------|--------|----------------|-----------------|---------------|
+| 001  | ...   | P1       | S      | —          | TODO   | —              | —               | —             |
+| 002  | ...   | P1       | M      | 001        | TODO   | —              | —               | —             |
 
-Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
+Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned) | ABANDONED | SUPERSEDED
 
 ## Dependency notes
 
