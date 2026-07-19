@@ -46,7 +46,7 @@ issue: null
 > is not permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
 > improvise. When finished, update this plan's YAML frontmatter and run
-> `python scripts/generate_plan_index.py` — unless a reviewer dispatched you
+> the bundled `resources/generate_plan_index.py` helper — unless a reviewer dispatched you
 > and told you they maintain the generated index.
 >
 > **Drift check (run first)**: `git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`
@@ -56,7 +56,7 @@ issue: null
 
 ## Status
 
-The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; run `python scripts/generate_plan_index.py` after status changes.
+The fields below mirror the YAML frontmatter for human readers. The YAML frontmatter is authoritative; run the bundled `resources/generate_plan_index.py` helper after status changes.
 
 - **Status**: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED
 - **Priority**: P1 | P2 | P3
@@ -172,7 +172,7 @@ Machine-checkable. ALL must hold:
 - [ ] `pnpm test` exits 0; new tests for <X> exist and pass
 - [ ] `grep -rn "<old pattern>" src/` returns no matches
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] YAML frontmatter updated with the current lifecycle state and `python scripts/generate_plan_index.py` rerun
+- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
 
 ## STOP conditions
 
@@ -199,13 +199,13 @@ For the human/agent who owns this code after the change lands:
 
 ## Index file: `docs/dev/plans/README.md`
 
-Generated from plan frontmatter by `python scripts/generate_plan_index.py`:
+Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper:
 
 ```markdown
 # Implementation Plans
 
 Generated from plan frontmatter. Do not hand-edit this table; update the plan
-file and rerun `python scripts/generate_plan_index.py`.
+file and rerun the bundled `resources/generate_plan_index.py` helper.
 
 ## Execution order & status
 

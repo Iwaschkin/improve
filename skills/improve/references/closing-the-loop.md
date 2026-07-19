@@ -133,6 +133,6 @@ Modifier on any planning invocation (`/improve --issues`, `/improve security --i
 3. Show the list of titles about to become issues; confirm once if interactive. Non-interactive on a public repo: exclude any plan describing a security vulnerability, credential location, or other sensitive finding — the plan file is still written; record "issue skipped: sensitive content + public repo, needs interactive confirmation" in the plan frontmatter.
 4. Before creating anything, search for an existing issue by plan id and exact title, for example `gh issue list --state all --search "\"IMP-014\" OR \"<plan title>\"" --json number,title,url,state`. If an existing issue clearly corresponds to the same plan, do not create a duplicate; record that issue URL in the plan frontmatter and regenerate the index.
 5. Per remaining plan: `gh issue create --title "<plan title>" --body-file <plan file>`. Labels: `improve` plus the category — apply only if the labels exist or can be created without erroring; skip labels rather than fail.
-6. Record each issue URL in the plan frontmatter (`issue: <url>`) and run `python scripts/generate_plan_index.py`.
+6. Record each issue URL in the plan frontmatter (`issue: <url>`) and run the bundled `resources/generate_plan_index.py` helper.
 
 The plan file remains the source of truth; the issue is distribution. The self-containment rule pays off here — the issue body needs no edits to make sense to whoever (or whatever) picks it up.

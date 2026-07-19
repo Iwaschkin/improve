@@ -37,7 +37,7 @@ moved on — don't execute this; run `/improve` on your own repo instead.
 > is not permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
 > improvise. When finished, update this plan's YAML frontmatter and run
-> `python scripts/generate_plan_index.py`.
+> the bundled `resources/generate_plan_index.py` helper.
 >
 > **Drift check (run first)**: `git diff --stat 1994caba0..HEAD -- packages/shadcn/src/commands/search.ts packages/shadcn/src/commands/view.ts packages/shadcn/src/registry/config.ts`
 > If any of these changed since this plan was written, compare the
@@ -193,7 +193,7 @@ Replace the block at ~36–55 with `resolveShadowConfig(options.cwd)` (no seed �
 - [ ] `grep -rn "TODO: We're duplicating logic for shadowConfig" packages/shadcn/src/` returns no matches (comment removed with the duplication)
 - [ ] Both `search.ts` and `view.ts` call `resolveShadowConfig`; neither contains an inline shadow-config block
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] YAML frontmatter updated with the current lifecycle state and `python scripts/generate_plan_index.py` rerun
+- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
 
 ## STOP conditions
 

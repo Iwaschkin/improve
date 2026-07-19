@@ -8,8 +8,7 @@ import sys
 from pathlib import Path
 from typing import TypeAlias, cast
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PLANS_DIR = REPO_ROOT / "docs" / "dev" / "plans"
+DEFAULT_PLANS_DIR = Path.cwd() / "docs" / "dev" / "plans"
 PlanValue: TypeAlias = str | bool | list[str] | None
 
 
@@ -89,7 +88,7 @@ def render_index(rows: list[dict[str, PlanValue]]) -> str:
     lines = [
         "# Implementation Plans",
         "",
-        "Generated from plan frontmatter. Do not hand-edit this table; update the plan file and rerun `python scripts/generate_plan_index.py`.",
+        "Generated from plan frontmatter. Do not hand-edit this table; update the plan file and rerun the bundled `resources/generate_plan_index.py` helper.",
         "",
         "## Execution Order & Status",
         "",

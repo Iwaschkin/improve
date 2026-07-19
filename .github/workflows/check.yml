@@ -19,3 +19,4 @@ jobs:
           python-version: "3.12"
       - run: python scripts/check.py
       - run: python scripts/check_tests.py
+      - run: python skills/improve/resources/generate_plan_index.py --plans-dir "$RUNNER_TEMP/plans"
