@@ -13,10 +13,10 @@ other agent     →  implements, tests, ships    (cheap model, executes)
 ## Install
 
 ```bash
-npx skills add shadcn/improve
+npx skills add Iwaschkin/improve
 ```
 
-Works in any agent that supports [Agent Skills](https://agentskills.io) format. The plans it writes are plain markdown, so any agent (or human) can pick them up.
+Works in any agent that supports [Agent Skills](https://agentskills.io) format. This fork is maintained at `Iwaschkin/improve` and is based on upstream `shadcn/improve`; the plans it writes are plain markdown, so any agent (or human) can pick them up.
 
 ## Usage
 
@@ -108,4 +108,4 @@ Plans aren't fire-and-forget:
 
 ## License
 
-MIT © shadcn
+MIT © shadcn. Fork maintenance by Iwaschkin; original attribution retained.
