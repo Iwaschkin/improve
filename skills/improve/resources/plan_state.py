@@ -727,9 +727,13 @@ def resolve_plans_dir(supplied: str) -> tuple[Path | None, str | None]:
     to the skill workflow; helpers only validate an explicitly supplied
     directory and refuse to operate outside the current repository root.
     Returns (resolved_path, None) or (None, error_message).
+
+    Windows-style separators are normalized at this input boundary so the
+    same repository-relative argument works identically on every platform —
+    documented plan paths always use forward slashes.
     """
     root = Path.cwd().resolve()
-    raw = Path(supplied)
+    raw = Path(supplied.replace("\\", "/"))
     resolved = (raw if raw.is_absolute() else root / raw).resolve()
     if not resolved.is_relative_to(root):
         return None, (
