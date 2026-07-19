@@ -68,6 +68,15 @@ The goal is not a percentage — it's *which untested code is dangerous*.
 
 ## 6. Dependencies & Migrations
 
+Dependency, vulnerability, support-window, and latest-version claims must use live evidence. If online verification is unavailable, label the finding provisional instead of asserting it as current. Record:
+
+- `checked_at`: ISO date of the verification attempt.
+- `installed_version`: version observed in the repo.
+- `latest_supported_version`: current supported version from a primary source, when available.
+- `source_type`: official_release | official_advisory | vendor_documentation | package_registry | unavailable.
+- `reachability`: confirmed | likely | not_established.
+- `online_verification`: completed | unavailable.
+
 - Major-version lag on core framework/runtime (not every minor bump — the ones with real cost to staying behind: EOL, security-fix cutoffs, ecosystem incompatibility).
 - Deprecated APIs in use that have announced removal timelines.
 - Abandoned dependencies (no release in years, archived repos) on critical paths.
@@ -120,6 +129,10 @@ Every finding, from every category and every subagent, comes back in this shape:
 - **Risk**: What the fix could break; LOW/MED/HIGH plus one line why.
 - **Confidence**: HIGH (read the code, certain) / MED (strong signal, needs verification) / LOW (smell, needs investigation). LOW-confidence findings may be reported but get an "investigate" plan, not a "fix" plan.
 - **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly.
+
+For dependency findings, add:
+
+- **Dependency evidence**: `checked_at`, `installed_version`, `latest_supported_version`, `source_type`, `reachability`, and `online_verification`. If live verification could not be completed, say so and mark the finding provisional.
 ```
 
 ## Prioritization rubric
