@@ -32,8 +32,14 @@ scope:
 dependencies: []
 execution_branch: null
 execution_base: null
+execution_profile: null
+execution_locator: null
+executor_head: null
 reviewed_commit: null
 merged_commit: null
+verification_environment: null
+status_note: null
+skill_version: null
 sensitive: false
 issue: null
 ---
@@ -72,9 +78,13 @@ The fields below mirror the YAML frontmatter for human readers. The YAML frontma
 - **Planned at**: commit `<full 40-character SHA>`, <YYYY-MM-DD>
 - **Working tree clean**: true | false (automatic `execute` requires true)
 - **Execution profile**: trusted-local | strict | manual (record when execution starts; omit until then)
+- **Execution locator**: worktree path, remote task id, branch, or PR URL (set when execution starts; omit until then)
 - **Execution base**: `<full 40-character SHA>` (set when execution starts; omit until then)
+- **Executor head**: `<full 40-character SHA>` (set from the executor report; omit until then)
 - **Reviewed commit**: `<full 40-character SHA>` (set when reviewer approves; omit until then)
 - **Merged commit**: `<full 40-character SHA>` (set when reachable from target branch; omit until then)
+- **Verification environment**: restricted-sandbox | host-approval-policy | user-confirmed-normal-account | not-run | unknown (set when verification runs; omit until then)
+- **Status note**: one line — required for BLOCKED / REJECTED / ABANDONED / SUPERSEDED, omit otherwise
 - **Issue**: <GitHub issue URL — only when published via `--issues`; omit otherwise>
 
 ## Why this matters
@@ -217,7 +227,9 @@ For the human/agent who owns this code after the change lands:
 
 Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper requires Python 3.10+: find an interpreter with `python3 --version` where that name is conventional, otherwise `python --version`, and accept only 3.10 or newer. Invoke the helper by the path of the currently loaded skill's `resources/` directory — never a guessed global install path. If no compatible interpreter or helper path is available, leave the plan files as they are and report that index generation is pending; the index never blocks the implementation.
 
-The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, and unresolved or out-of-order dependencies fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
+The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, unresolved or out-of-order dependencies, and impossible lifecycle states (a REVIEWED plan without an executor head, a VERIFIED plan whose verification never ran, a BLOCKED plan without a `status_note`) fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun.
+
+The generated index renders three sections: the main status table (with status notes, issue URLs, and a `(sensitive)` marker on plans that must not be published without the confirmation flow), an `Execution & Verification Details` table for any plan with execution state, and a `Findings Considered and Rejected` section sourced from an optional `rejections.json` beside the plans — a JSON array of objects with exactly `id` (the audit's `[CATEGORY-NN]` finding identifier), `title`, `rationale`, `evidence` (list of `file:line` strings, may be empty), and `recorded_at` (`YYYY-MM-DD`). Write rejections there, never by hand-editing the generated index; an invalid `rejections.json` fails generation and preserves the previous index.
 
 ```markdown
 # Implementation Plans

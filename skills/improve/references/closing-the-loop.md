@@ -139,11 +139,20 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 | **REVISE** | Fixable gaps | Continue the same executor when the host supports continuation, with specific, actionable feedback ("criterion 3 fails: X; the error handling in `api.ts:90` swallows the error — use the Result pattern per the plan"); otherwise redispatch fresh with the full plan, the prior report, current SHAs, and the feedback. **Max 2 revision rounds**, then BLOCK. |
 | **BLOCK** | STOP condition hit, scope violated unrecoverably, or revisions exhausted | Mark BLOCKED in the index with the reason. Refine or rewrite the plan with what was learned. Tell the user what happened and what changed in the plan. |
 
-Every verdict report must include the executor's worktree path, branch, execution base SHA, executor HEAD SHA, reviewed commit, execution profile, and verification environment, even when the executor stopped or the review blocks the result.
+Every verdict report must include the executor's execution locator, branch, execution base SHA, executor HEAD SHA, reviewed commit, execution profile, and verification environment, even when the executor stopped or the review blocks the result.
+
+**Every transition writes the plan record first, then regenerates the index.** The facts in the executor report land in the plan frontmatter (`execution_locator`, `execution_branch`, `execution_base`, `execution_profile`, `executor_head`, `reviewed_commit`, `merged_commit`, `verification_environment`, and a `status_note` for BLOCKED and later REJECTED/ABANDONED/SUPERSEDED decisions). Ownership:
+
+- the advisor sets EXECUTING metadata (locator, branch, base, profile) before dispatch;
+- the reviewer sets REVIEWED or BLOCKED, plus executor head, reviewed commit, and verification environment, after review;
+- `reconcile` sets MERGED and VERIFIED only after reachability and verification;
+- operator decisions set ABANDONED/SUPERSEDED with a status note.
 
 Running verification commands inside the executor's worktree is not automatically safe. A git worktree isolates the user's working tree, not the host, so commands run with the available user privileges (network, env, credentials, home directory, local services). That is why the profile, not the worktree, governs execution: strict requires an enforceable container/VM boundary, trusted-local defers to the host's permission policy, and the high-risk effects listed under Execution profiles need explicit authorization everywhere.
 
 ### Cleanup
+
+Cleanup applies only when the recorded `execution_locator` is a local worktree managed by the current operator. For a remote locator (task id, branch, or PR URL), cleanup follows the host's own lifecycle and requires explicit user authority — never infer that a remote artifact is disposable.
 
 - Keep REVIEWED worktrees until the user has either merged, abandoned, or superseded the reviewed branch. They are review artifacts, not build caches.
 - After a plan reaches VERIFIED, remove the executor worktree with `git worktree remove <path>` and prune stale metadata with `git worktree prune`. Delete the executor branch only after confirming the reviewed commit is reachable from the target branch.

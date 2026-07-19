@@ -11,6 +11,7 @@ index untouched; successful runs replace the index atomically.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -18,7 +19,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import TypeAlias, cast
+from typing import Any, TypeAlias, cast
 
 DEFAULT_PLANS_DIR = Path.cwd() / "docs" / "dev" / "plans"
 PlanValue: TypeAlias = str | bool | list[str] | None
@@ -54,6 +55,15 @@ CATEGORY_ENUM = {
     "direction",
 }
 
+PROFILE_ENUM = {"trusted-local", "strict", "manual"}
+VERIFICATION_ENUM = {
+    "restricted-sandbox",
+    "host-approval-policy",
+    "user-confirmed-normal-account",
+    "not-run",
+    "unknown",
+}
+
 REQUIRED_FIELDS = (
     "id",
     "title",
@@ -75,6 +85,12 @@ REQUIRED_FIELDS = (
     "sensitive",
     "issue",
 )
+
+# Lifecycle fields introduced after the base schema; optional (absent == null)
+# so older plans stay valid, but validated whenever present.
+OPTIONAL_NULLABLE_STRINGS = ("execution_locator", "status_note", "skill_version")
+
+REJECTION_KEYS = {"id", "title", "rationale", "evidence", "recorded_at"}
 
 
 @dataclass
@@ -360,6 +376,147 @@ def validate_plan(
             )
         )
 
+    for field in OPTIONAL_NULLABLE_STRINGS:
+        value = data.get(field)
+        if value is not None and not _is_nonempty_str(value):
+            errors.append(
+                Diagnostic(
+                    filename, f"expected null or a nonempty string, got {value!r}",
+                    field=field,
+                )
+            )
+    profile = data.get("execution_profile")
+    if profile is not None and (
+        not isinstance(profile, str) or profile not in PROFILE_ENUM
+    ):
+        errors.append(
+            Diagnostic(
+                filename,
+                f"expected null or one of {sorted(PROFILE_ENUM)}, got {profile!r}",
+                field="execution_profile",
+            )
+        )
+    _check_nullable_sha(data, "executor_head", filename, errors)
+    verification = data.get("verification_environment")
+    if verification is not None and (
+        not isinstance(verification, str) or verification not in VERIFICATION_ENUM
+    ):
+        errors.append(
+            Diagnostic(
+                filename,
+                f"expected null or one of {sorted(VERIFICATION_ENUM)}, got {verification!r}",
+                field="verification_environment",
+            )
+        )
+
+    validate_lifecycle(data, filename, errors)
+
+
+def validate_lifecycle(
+    data: dict[str, PlanValue], filename: str, errors: list[Diagnostic]
+) -> None:
+    """Cross-field invariants keyed on status; impossible states fail closed."""
+    status = data.get("status")
+    if not isinstance(status, str) or status not in STATUS_ENUM:
+        return  # already reported by the enum check
+
+    def require(field: str, reason: str) -> None:
+        if data.get(field) in (None, "", []):
+            errors.append(Diagnostic(filename, reason, field=field))
+
+    executing_or_later = status in {"EXECUTING", "REVIEWED", "MERGED", "VERIFIED"}
+    if executing_or_later and data.get("status_note") is None:
+        # A status_note may explain a legacy/manual exception to the
+        # execution-provenance requirements.
+        require("execution_locator", f"status {status} requires an execution locator")
+        require("execution_base", f"status {status} requires the execution base SHA")
+        require("execution_profile", f"status {status} requires the execution profile")
+    if status in {"REVIEWED", "MERGED", "VERIFIED"}:
+        require("executor_head", f"status {status} requires the executor head SHA")
+        require("reviewed_commit", f"status {status} requires the reviewed commit")
+    if status in {"MERGED", "VERIFIED"}:
+        require("merged_commit", f"status {status} requires the merged commit")
+    if status in {"BLOCKED", "REJECTED", "ABANDONED", "SUPERSEDED"}:
+        require("status_note", f"status {status} requires a one-line status_note rationale")
+    if status == "VERIFIED" and data.get("verification_environment") in (
+        None,
+        "not-run",
+        "unknown",
+    ):
+        errors.append(
+            Diagnostic(
+                filename,
+                "VERIFIED requires a verification_environment that actually ran",
+                field="verification_environment",
+            )
+        )
+
+
+def load_rejections(
+    plans_dir: Path, errors: list[Diagnostic]
+) -> list[dict[str, Any]]:
+    """Load and validate the optional rejections.json finding record."""
+    path = plans_dir / "rejections.json"
+    if not path.exists():
+        return []
+    filename = path.name
+    try:
+        raw: Any = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append(Diagnostic(filename, f"not valid JSON: {exc}"))
+        return []
+    if not isinstance(raw, list):
+        errors.append(Diagnostic(filename, "top level must be a JSON array"))
+        return []
+    entries: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for index, item in enumerate(cast(list[Any], raw)):
+        where = f"entry {index}"
+        if not isinstance(item, dict):
+            errors.append(Diagnostic(filename, f"{where}: must be an object"))
+            continue
+        entry = cast(dict[str, Any], item)
+        keys = set(entry.keys())
+        if keys != REJECTION_KEYS:
+            errors.append(
+                Diagnostic(
+                    filename,
+                    f"{where}: keys must be exactly {sorted(REJECTION_KEYS)}, got {sorted(keys)}",
+                )
+            )
+            continue
+        entry_id = entry.get("id")
+        for key in ("id", "title", "rationale"):
+            value = entry.get(key)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(
+                    Diagnostic(filename, f"{where}: {key} must be a nonempty string")
+                )
+        evidence = entry.get("evidence")
+        if not isinstance(evidence, list) or any(
+            not isinstance(ref, str) or not ref.strip()
+            for ref in cast(list[Any], evidence)
+        ):
+            errors.append(
+                Diagnostic(
+                    filename,
+                    f"{where}: evidence must be a list of nonempty strings (may be empty)",
+                )
+            )
+        recorded_at = entry.get("recorded_at")
+        if not isinstance(recorded_at, str) or not DATE_RE.fullmatch(recorded_at):
+            errors.append(
+                Diagnostic(filename, f"{where}: recorded_at must be YYYY-MM-DD")
+            )
+        if isinstance(entry_id, str):
+            if entry_id in seen_ids:
+                errors.append(
+                    Diagnostic(filename, f"{where}: duplicate rejection id {entry_id!r}")
+                )
+            seen_ids.add(entry_id)
+        entries.append(entry)
+    return entries
+
 
 def validate_graph(
     rows: list[dict[str, PlanValue]], errors: list[Diagnostic]
@@ -468,15 +625,34 @@ def collect_plans(
     return rows, errors
 
 
+def escape_cell(text: str) -> str:
+    """Keep arbitrary scalar content from corrupting the Markdown table."""
+    return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
+
+
 def cell(value: PlanValue) -> str:
     if value in (None, "", []):
         return "-"
     if isinstance(value, list):
-        return ", ".join(str(item) for item in value) if value else "-"
-    return str(value)
+        return escape_cell(", ".join(str(item) for item in value)) if value else "-"
+    return escape_cell(str(value))
 
 
-def render_index(rows: list[dict[str, PlanValue]]) -> str:
+EXECUTION_DETAIL_FIELDS = (
+    "execution_profile",
+    "execution_locator",
+    "execution_branch",
+    "execution_base",
+    "executor_head",
+    "reviewed_commit",
+    "merged_commit",
+    "verification_environment",
+)
+
+
+def render_index(
+    rows: list[dict[str, PlanValue]], rejections: list[dict[str, Any]]
+) -> str:
     lines = [
         "# Implementation Plans",
         "",
@@ -484,13 +660,15 @@ def render_index(rows: list[dict[str, PlanValue]]) -> str:
         "",
         "## Execution Order & Status",
         "",
-        "| Plan | Title | Priority | Effort | Depends on | Status | Execution base | Reviewed commit | Merged commit |",
-        "| ---- | ----- | -------- | ------ | ---------- | ------ | -------------- | --------------- | ------------- |",
+        "| Plan | Title | Priority | Effort | Depends on | Status | Status note | Issue |",
+        "| ---- | ----- | -------- | ------ | ---------- | ------ | ----------- | ----- |",
     ]
     for row in rows:
         plan_id = cell(row.get("id"))
         title = cell(row.get("title"))
         filename = cell(row.get("file"))
+        if row.get("sensitive") is True:
+            title = f"{title} (sensitive)"
         if filename != "-":
             title = f"[{title}]({filename})"
         lines.append(
@@ -503,22 +681,61 @@ def render_index(rows: list[dict[str, PlanValue]]) -> str:
                     cell(row.get("effort")),
                     cell(row.get("dependencies")),
                     cell(row.get("status")),
-                    cell(row.get("execution_base")),
-                    cell(row.get("reviewed_commit")),
-                    cell(row.get("merged_commit")),
+                    cell(row.get("status_note")),
+                    cell(row.get("issue")),
                 ]
             )
             + " |"
         )
     if not rows:
-        lines.append("| - | No plans yet | - | - | - | - | - | - | - |")
+        lines.append("| - | No plans yet | - | - | - | - | - | - |")
     lines.extend(
         [
             "",
             "Status values: TODO | EXECUTING | REVIEWED | MERGED | VERIFIED | BLOCKED | REJECTED | ABANDONED | SUPERSEDED",
-            "",
         ]
     )
+
+    detail_rows = [
+        row
+        for row in rows
+        if any(row.get(field) not in (None, "", []) for field in EXECUTION_DETAIL_FIELDS)
+    ]
+    if detail_rows:
+        lines.extend(
+            [
+                "",
+                "## Execution & Verification Details",
+                "",
+                "| Plan | Profile | Locator | Branch | Execution base | Executor head | Reviewed commit | Merged commit | Verification |",
+                "| ---- | ------- | ------- | ------ | -------------- | ------------- | --------------- | ------------- | ------------ |",
+            ]
+        )
+        for row in detail_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [cell(row.get("id"))]
+                    + [cell(row.get(field)) for field in EXECUTION_DETAIL_FIELDS]
+                )
+                + " |"
+            )
+
+    lines.extend(["", "## Findings Considered and Rejected", ""])
+    if rejections:
+        for entry in rejections:
+            evidence_list = cast(list[Any], entry.get("evidence") or [])
+            evidence = ", ".join(str(ref) for ref in evidence_list)
+            suffix = f" (evidence: {escape_cell(evidence)})" if evidence else ""
+            lines.append(
+                f"- [{escape_cell(str(entry.get('id')))}] "
+                f"{escape_cell(str(entry.get('title')))}: "
+                f"{escape_cell(str(entry.get('rationale')))} "
+                f"(recorded {entry.get('recorded_at')}){suffix}"
+            )
+    else:
+        lines.append("None recorded.")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -551,6 +768,7 @@ def main() -> int:
     plans_dir.mkdir(parents=True, exist_ok=True)
 
     rows, errors = collect_plans(plans_dir)
+    rejections = load_rejections(plans_dir, errors)
     if errors:
         for error in errors:
             print(error.render(), file=sys.stderr)
@@ -561,7 +779,7 @@ def main() -> int:
         return 1
 
     index_path = plans_dir / "README.md"
-    write_index_atomically(index_path, render_index(rows))
+    write_index_atomically(index_path, render_index(rows, rejections))
     print(f"wrote {index_path}")
     return 0
 

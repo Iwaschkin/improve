@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -56,6 +57,25 @@ def numbered_plan(number: int, dependencies: str = "dependencies: []") -> str:
         title=f"title: Test plan {number}",
         dependencies=dependencies,
     )
+
+
+OTHER_SHA = "1234567890abcdef1234567890abcdef12345678"
+
+
+def lifecycle_plan(status: str, **overrides: object) -> str:
+    """A plan in an execution-derived status with complete provenance."""
+    fields: dict[str, object] = {
+        "status": f"status: {status}",
+        "execution_branch": "execution_branch: advisor/001-test-plan",
+        "execution_base": f"execution_base: {VALID_SHA}",
+        "reviewed_commit": f"reviewed_commit: {OTHER_SHA}",
+        "issue": "issue: null\nexecution_profile: trusted-local\n"
+        "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
+        f"executor_head: {OTHER_SHA}\n"
+        "verification_environment: host-approval-policy",
+    }
+    fields.update(overrides)
+    return plan_frontmatter(**fields)
 
 
 def run_generator(plans_dir: Path) -> subprocess.CompletedProcess[str]:
@@ -216,7 +236,189 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
             False,
             ["'IMP-002' is not numbered earlier than 'IMP-001'"],
         )
+    if name == "lifecycle-valid-reviewed":
+        return {"001-test-plan.md": lifecycle_plan("REVIEWED")}, True, []
+    if name == "lifecycle-valid-verified":
+        return (
+            {
+                "001-test-plan.md": lifecycle_plan(
+                    "VERIFIED",
+                    merged_commit=f"merged_commit: {OTHER_SHA}",
+                )
+            },
+            True,
+            [],
+        )
+    if name == "lifecycle-blocked-without-note":
+        return (
+            {"001-test-plan.md": plan_frontmatter(status="status: BLOCKED")},
+            False,
+            ["status_note", "BLOCKED requires"],
+        )
+    if name == "lifecycle-reviewed-missing-head":
+        return (
+            {
+                "001-test-plan.md": lifecycle_plan(
+                    "REVIEWED",
+                    issue="issue: null\nexecution_profile: trusted-local\n"
+                    "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
+                    "verification_environment: host-approval-policy",
+                )
+            },
+            False,
+            ["executor_head", "REVIEWED requires"],
+        )
+    if name == "lifecycle-verified-not-run":
+        return (
+            {
+                "001-test-plan.md": lifecycle_plan(
+                    "VERIFIED",
+                    merged_commit=f"merged_commit: {OTHER_SHA}",
+                    issue="issue: null\nexecution_profile: trusted-local\n"
+                    "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
+                    f"executor_head: {OTHER_SHA}\n"
+                    "verification_environment: not-run",
+                )
+            },
+            False,
+            ["verification_environment that actually ran"],
+        )
+    if name == "lifecycle-merged-missing-commit":
+        return (
+            {"001-test-plan.md": lifecycle_plan("MERGED")},
+            False,
+            ["merged_commit", "MERGED requires"],
+        )
+    if name == "lifecycle-executing-missing-provenance":
+        return (
+            {"001-test-plan.md": plan_frontmatter(status="status: EXECUTING")},
+            False,
+            ["execution_locator", "execution_profile"],
+        )
+    if name == "lifecycle-executing-note-exception":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    status="status: EXECUTING",
+                    issue="issue: null\nstatus_note: legacy manual execution, provenance unknown",
+                )
+            },
+            True,
+            [],
+        )
+    if name == "invalid-execution-profile":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    issue="issue: null\nexecution_profile: yolo"
+                )
+            },
+            False,
+            ["execution_profile", "'yolo'"],
+        )
+    if name == "sensitive-marker":
+        return (
+            {"001-test-plan.md": plan_frontmatter(sensitive="sensitive: true")},
+            True,
+            [],
+        )
+    if name == "pipe-escaping":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    title="title: Fix a | b handling"
+                )
+            },
+            True,
+            [],
+        )
+    if name == "issue-rendered":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    issue="issue: https://github.com/example/repo/issues/7"
+                )
+            },
+            True,
+            [],
+        )
+    if name == "rejections-valid":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(),
+                "rejections.json": json.dumps(
+                    [
+                        {
+                            "id": "SEC-01",
+                            "title": "https_proxy SSRF",
+                            "rationale": "by-design proxy convention",
+                            "evidence": ["src/net.ts:12"],
+                            "recorded_at": "2026-07-19",
+                        }
+                    ]
+                ),
+            },
+            True,
+            [],
+        )
+    if name == "rejections-malformed-json":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(),
+                "rejections.json": "[not json",
+            },
+            False,
+            ["rejections.json", "not valid JSON"],
+        )
+    if name == "rejections-duplicate-id":
+        entry: dict[str, object] = {
+            "id": "SEC-01",
+            "title": "t",
+            "rationale": "r",
+            "evidence": [],
+            "recorded_at": "2026-07-19",
+        }
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(),
+                "rejections.json": json.dumps([entry, dict(entry)]),
+            },
+            False,
+            ["duplicate rejection id"],
+        )
+    if name == "rejections-bad-schema":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(),
+                "rejections.json": json.dumps(
+                    [{"id": "SEC-01", "title": "t", "rationale": "r"}]
+                ),
+            },
+            False,
+            ["keys must be exactly"],
+        )
     raise ValueError(f"unknown fixture {name}")
+
+
+# Success-case content assertions: substrings the generated index must contain.
+EXTRA_INDEX_ASSERTS = {
+    "valid-single-plan": ["None recorded."],
+    "lifecycle-valid-reviewed": [
+        "## Execution & Verification Details",
+        "docs/dev/plans/.worktrees/001-test-plan",
+        "trusted-local",
+        OTHER_SHA,
+    ],
+    "lifecycle-valid-verified": ["VERIFIED", "host-approval-policy"],
+    "sensitive-marker": ["(sensitive)"],
+    "pipe-escaping": ["Fix a \\| b handling"],
+    "issue-rendered": ["https://github.com/example/repo/issues/7"],
+    "rejections-valid": [
+        "## Findings Considered and Rejected",
+        "[SEC-01] https_proxy SSRF: by-design proxy convention",
+        "src/net.ts:12",
+    ],
+}
 
 
 CASES = [
@@ -241,6 +443,22 @@ CASES = [
     "self-dependency",
     "dependency-cycle",
     "out-of-order-dependency",
+    "lifecycle-valid-reviewed",
+    "lifecycle-valid-verified",
+    "lifecycle-blocked-without-note",
+    "lifecycle-reviewed-missing-head",
+    "lifecycle-verified-not-run",
+    "lifecycle-merged-missing-commit",
+    "lifecycle-executing-missing-provenance",
+    "lifecycle-executing-note-exception",
+    "invalid-execution-profile",
+    "sensitive-marker",
+    "pipe-escaping",
+    "issue-rendered",
+    "rejections-valid",
+    "rejections-malformed-json",
+    "rejections-duplicate-id",
+    "rejections-bad-schema",
 ]
 
 
@@ -261,9 +479,15 @@ def run_case(name: str) -> bool:
                 ok = False
                 print(f"  index was not regenerated on success")
             for rel in files:
+                if rel == "rejections.json":
+                    continue
                 if rel.replace(".md", "") not in index:
                     ok = False
                     print(f"  index missing entry for {rel}")
+            for expected in EXTRA_INDEX_ASSERTS.get(name, []):
+                if expected not in index:
+                    ok = False
+                    print(f"  index missing expected content {expected!r}")
         else:
             index = (plans_dir / "README.md").read_text(encoding="utf-8")
             if index != sentinel:

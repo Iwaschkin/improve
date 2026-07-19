@@ -71,11 +71,11 @@ Every finding needs: evidence (`file:line` references), impact, effort estimate 
 
 ### Phase 3 — Vet, prioritize, confirm
 
-**Vet before presenting — subagents over-report.** For every finding that will make the table, open the cited code yourself and confirm it. Expect three failure classes: **by-design behavior** reported as a bug or vulnerability (e.g. honoring `https_proxy` flagged as SSRF — it's the standard proxy convention; or a tradeoff explicitly recorded in an ADR / decision doc from recon — that's settled, not a finding); **mis-attributed evidence** (real finding, wrong file or line); and duplicates across subagents. Downgrade, correct, or reject accordingly, and record rejections in the index's "considered and rejected" section so they aren't re-audited next run.
+**Vet before presenting — subagents over-report.** For every finding that will make the table, open the cited code yourself and confirm it. Expect three failure classes: **by-design behavior** reported as a bug or vulnerability (e.g. honoring `https_proxy` flagged as SSRF — it's the standard proxy convention; or a tradeoff explicitly recorded in an ADR / decision doc from recon — that's settled, not a finding); **mis-attributed evidence** (real finding, wrong file or line); and duplicates across subagents. Downgrade, correct, or reject accordingly, and record rejections in `docs/dev/plans/rejections.json` (schema in [references/plan-template.md](references/plan-template.md)) so the generated index carries them and they aren't re-audited next run.
 
-Present the vetted findings table to the user, ordered by leverage (impact ÷ effort, weighted by confidence):
+Present the vetted findings table to the user, ordered by leverage (impact ÷ effort, weighted by confidence). The ID column carries the playbook's `[CATEGORY-NN]` finding identifier — the same identifier used in rejection records:
 
-| # | Finding | Category | Impact | Effort | Risk | Confidence | Evidence |
+| ID | Finding | Category | Impact | Effort | Risk | Confidence | Evidence |
 
 Present **direction findings separately**, after the table — they're options for the maintainer to weigh, not problems ranked against bugs, and burying "build a plugin system" under "fix the N+1" serves neither. 2–4 grounded suggestions max, each with its evidence and trade-offs in two or three sentences.
 
@@ -98,7 +98,7 @@ docs/dev/plans/
 
 Before writing anything: record `git rev-parse HEAD` and `git status --porcelain=v1` — every plan stamps the full 40-character commit it was written against and whether the working tree was clean. Auditing may inspect a dirty tree, but automatic `execute` requires the relevant baseline to be committed; plans written from a dirty tree must say `working_tree_clean: false` and are not automatically executable until refreshed from a committed baseline (or the user explicitly chooses committed-`HEAD` execution knowing local changes are excluded). If `docs/dev/plans/` already exists from a previous run, **reconcile, don't duplicate**: read `docs/dev/plans/README.md`, keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `docs/dev/plans/` exists for some unrelated purpose, use `docs/dev/advisor-plans/` instead and say so.
 
-Write each plan with YAML frontmatter matching the template: `id`, `title`, `status`, `priority`, `effort`, `risk`, `category`, `base_commit`, `working_tree_clean`, `created_at`, `updated_at`, `scope`, `dependencies`, execution/review/merge commit fields, `sensitive`, and `issue`. Keep the human-readable Status section in sync until the generated index owns that projection.
+Write each plan with YAML frontmatter matching the template: `id`, `title`, `status`, `priority`, `effort`, `risk`, `category`, `base_commit`, `working_tree_clean`, `created_at`, `updated_at`, `scope`, `dependencies`, the execution provenance fields (branch, base, profile, locator, executor head, reviewed/merged commits, verification environment, status note, skill version), `sensitive`, and `issue`. Keep the human-readable Status section in sync until the generated index owns that projection.
 
 Keep each plan small enough for a weaker executor: one behavioral objective, preferably no more than 7 in-scope files, no broad rewrites, and no multi-package migration unless the plan is explicitly a design/spike. If a finding needs more, split it into dependency-ordered plans (for example: characterization tests, then refactor, then cleanup). Record scope limits in the plan and make exceeding them a STOP condition.
 
