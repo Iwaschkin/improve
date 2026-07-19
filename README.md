@@ -56,7 +56,7 @@ A typical first run, start to finish:
 4. Hand a plan to any agent ("implement docs/dev/plans/001-*.md"), or let the skill run it: `/improve execute 001`. It dispatches a cheaper model in an ignored workspace-local disposable worktree, reviews `EXECUTION_BASE_SHA..HEAD` before running repository code, and reports back with the worktree path, branch, reviewed commit, verification environment, and verdict. Merging stays up to you.
 5. Next session, run `/improve reconcile` to clean up the backlog: verify what landed, refresh what drifted, unblock what got stuck.
 
-Before a PR, `/improve branch` does the same thing scoped to just what your branch changes.
+Before a PR, `/improve branch` does the same thing scoped to what your branch changes, including committed diffs plus staged, unstaged, and untracked files from `git status --porcelain=v1`.
 
 ## Example
 

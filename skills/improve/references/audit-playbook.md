@@ -107,6 +107,8 @@ Direction findings use the standard format with two adaptations: **Impact** is p
 
 ## Finding format
 
+For branch-scoped audits, include files changed in commits plus staged, unstaged, and untracked paths reported by `git status --porcelain=v1`. Tag findings as `introduced` when the branch or dirty-tree change created them, and `pre-existing` when they are legacy issues in touched files.
+
 Every finding, from every category and every subagent, comes back in this shape:
 
 ```markdown
