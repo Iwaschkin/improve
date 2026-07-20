@@ -81,7 +81,7 @@ Dependency, vulnerability, support-window, and latest-version claims must use li
 - `installed_version`: version observed in the repo.
 - `latest_supported_version`: current supported version from a primary source, when available.
 - `source_type`: official_release | official_advisory | vendor_documentation | package_registry | unavailable.
-- `source`: the URL or registry locator actually consulted — required when `online_verification` is completed, so the advisor can re-check the claim instead of re-searching it.
+- `source`: a sanitized canonical locator for what was consulted — scheme, host, and path only, never credentials, tokens, or signed/sensitive query parameters; when no safe public URL exists (private registry, signed link), record the provider and document identifier instead (e.g. `GHSA-xxxx-xxxx`, `npm:package@version`). Required when `online_verification` is completed, so the advisor can re-check the claim instead of re-searching it.
 - `advisory_id`: the CVE/GHSA/vendor advisory identifier, when the claim rests on an advisory.
 - `affected_range`: the advisory's affected version range, alongside `advisory_id`.
 - `reachability`: confirmed | likely | not_established.
@@ -140,16 +140,17 @@ Every finding, from every category and every subagent, comes back in this shape:
 
 - **Evidence**: `path/file.ts:123` — one-sentence description of what's there. (Repeat per location; 2–5 strongest locations, note "and ~N similar sites" if widespread.)
 - **Impact**: What goes wrong / what's being paid because of this. Concrete: "every order-list render issues 1+N queries", not "suboptimal". Rate it HIGH (breaks behavior users rely on, loses or corrupts data, or is exploitable — on a path that's actually used), MED (real ongoing cost — performance, money, developer time — with a workaround), or LOW (friction or polish).
-- **Effort**: S (hours) / M (a day-ish) / L (multi-day) — for the *fix*, including tests.
-- **Risk**: What the fix could break; LOW/MED/HIGH plus one line why.
+- **Effort**: S (hours) / M (a day-ish) / L (multi-day) — for the *fix*, including tests; for a HYPOTHESIS finding, for the *investigation* instead.
+- **Risk**: What the fix could break; LOW/MED/HIGH plus one line why. For a HYPOTHESIS finding, rate the investigation, not an assumed fix.
 - **Confidence**: HIGH (read the code, certain) / MED (strong signal, needs verification) / LOW (smell, needs investigation). LOW-confidence findings may be reported but get an "investigate" plan, not a "fix" plan.
 - **Provenance** (branch-scoped audits only): `introduced` | `pre-existing`.
 - **Causal status** (corrective findings — anything claiming existing behavior is wrong): CONFIRMED or HYPOTHESIS. NOT-APPLICABLE is allowed only for genuinely non-corrective findings (direction, content-only docs) with one sentence saying why. An unproven cause is HYPOTHESIS and produces an investigation/characterization plan, never a fix plan. A missing-test finding identifies an unverified risk — its root-cause objective is the missing verification boundary itself, not a fabricated product bug.
 - **Observed condition** (corrective): the safe reproduction, static evidence, diagnostic, or concrete symptom actually observed.
 - **Causal chain** (CONFIRMED only): input or condition → exercised code path or contract → specific flaw → observed symptom or impact, with evidence at each non-obvious link.
-- **Correct fix layer** (corrective): the contract/module/state boundary that owns the flaw, and why the symptom surface is not sufficient.
+- **Correct fix layer** (CONFIRMED only): the contract/module/state boundary that owns the flaw, and why the symptom surface is not sufficient.
 - **Rejected shortcuts** (corrective): the likely symptom-level responses — suppression, swallowed error, retry/sleep, special case, weakened test, shim — that would leave the cause present.
-- **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly. A symptom silencer is acceptable only when the sketch itself records all four of: the confirmed cause; why the correct fix is genuinely unavailable; the correct fix and an objective removal condition; why this workaround is the narrowest possible and how it is tested.
+- **Fix sketch** (CONFIRMED and non-corrective findings): 1–3 sentences. Not the plan — just enough to judge effort honestly. A symptom silencer is acceptable only when the sketch itself records all four of: the confirmed cause; why the correct fix is genuinely unavailable; the correct fix and an objective removal condition; why this workaround is the narrowest possible and how it is tested.
+- **Investigation sketch** (HYPOTHESIS): the competing explanations still alive and the cheapest discriminating observation or check that would separate them — never a fix commitment.
 
 For dependency findings, add:
 

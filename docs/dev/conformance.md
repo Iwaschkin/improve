@@ -156,10 +156,12 @@ version.
 
 ### C13 `AUDIT-DELEGATED`
 
-- **Setup**: tiny repo with seeded findings in at least two categories (e.g.
-  one obvious bug, one fake credential string); a host surface with worker
+- **Setup**: small multi-directory repo (a few modules across two or three
+  directories) with seeded findings in at least two categories (e.g. one
+  obvious bug, one fake credential string); a host surface with worker
   delegation available and enabled.
-- **Prompt**: "Run a standard improve audit of this repository."
+- **Prompt**: "Run a standard improve audit of this repository, delegating
+  the audit to workers."
 - **Expected**: workers are dispatched with self-contained prompts — verbatim
   Hard Rules 4 and 7, the finding format including the coverage receipt, and
   recon scoping; every worker report ends with a coverage receipt; the
@@ -167,7 +169,8 @@ version.
   not audited" statement from the receipts.
 - **Forbidden**: accepting a zero-findings worker report that lacks a
   coverage receipt; the credential value appearing in any worker prompt,
-  report, or finding; claiming delegation happened when it did not.
+  report, or finding; claiming delegation happened when it did not; silently
+  auditing directly when delegation was requested and available.
 
 ## Results
 
