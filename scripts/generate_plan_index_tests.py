@@ -72,7 +72,8 @@ def done_plan(number: int, dependencies: str = "dependencies: []") -> str:
         f"execution_base: {VALID_SHA}\n"
         f"reviewed_commit: {OTHER_SHA}\n"
         f"merged_commit: {OTHER_SHA}\n"
-        "verified_at: 2026-07-19T12:00:00Z",
+        "verified_at: 2026-07-19T12:00:00Z\n"
+        "verification_environment: host-policy",
         status="status: DONE",
     )
 
@@ -294,7 +295,7 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
                 )
             },
             False,
-            ["merged_commit", "verified_at"],
+            ["merged_commit", "verified_at", "verification_environment"],
         )
     if name == "lifecycle-blocked-without-note":
         return (
@@ -397,6 +398,30 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
             False,
             ["duplicate rejection id"],
         )
+    if name == "archive-valid":
+        return (
+            {
+                "archive/001-first.md": done_plan(1),
+                "002-second.md": numbered_plan(2, "dependencies:\n  - IMP-001"),
+            },
+            True,
+            [],
+        )
+    if name == "archive-nonterminal":
+        return (
+            {"archive/001-first.md": numbered_plan(1)},
+            False,
+            ["archive/001-first.md", "DONE or REJECTED"],
+        )
+    if name == "archive-duplicate-id":
+        return (
+            {
+                "001-first.md": numbered_plan(1),
+                "archive/001-first.md": done_plan(1),
+            },
+            False,
+            ["duplicate plan id"],
+        )
     if name == "rejections-bad-schema":
         return (
             {
@@ -419,7 +444,7 @@ EXTRA_INDEX_ASSERTS = {
         "docs/dev/plans/.worktrees/001-test-plan",
         OTHER_SHA,
     ],
-    "lifecycle-valid-done": ["DONE", "2026-07-19T12:00:00Z"],
+    "lifecycle-valid-done": ["DONE", "2026-07-19T12:00:00Z", "host-policy"],
     "sensitive-marker": ["(sensitive)"],
     "pipe-escaping": ["Fix a \\| b handling"],
     "issue-rendered": ["https://github.com/example/repo/issues/7"],
@@ -427,6 +452,11 @@ EXTRA_INDEX_ASSERTS = {
         "## Findings Considered and Rejected",
         "[SEC-01] https_proxy SSRF: by-design proxy convention",
         "src/net.ts:12",
+    ],
+    "archive-valid": [
+        "## Archived Plans",
+        "(archive/001-first.md) (DONE)",
+        "IMP-002",
     ],
 }
 
@@ -470,18 +500,24 @@ CASES = [
     "rejections-malformed-json",
     "rejections-duplicate-id",
     "rejections-bad-schema",
+    "archive-valid",
+    "archive-nonterminal",
+    "archive-duplicate-id",
 ]
 
 
 def run_case(name: str) -> bool:
     files, expect_success, expected_stderr = fixture_files(name)
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()
         plans_dir = Path(tmp) / "plans"
         plans_dir.mkdir()
         sentinel = "# SENTINEL previous index — must survive failed runs\n"
         (plans_dir / "README.md").write_text(sentinel, encoding="utf-8")
         for rel, content in files.items():
-            (plans_dir / rel).write_text(content, encoding="utf-8")
+            target = plans_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
         result = run_generator(plans_dir)
         ok = (result.returncode == 0) == expect_success
         index = (plans_dir / "README.md").read_text(encoding="utf-8")
@@ -518,6 +554,7 @@ def test_deterministic_output() -> bool:
     outputs: list[bytes] = []
     for _ in range(2):
         with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / ".git").mkdir()
             plans_dir = Path(tmp) / "plans"
             plans_dir.mkdir()
             for rel, content in files.items():
@@ -540,6 +577,7 @@ def test_check_executable() -> bool:
     """Eligibility gate: authoritative frontmatter, README-immune, read-only."""
     failures: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()
         plans_dir = Path(tmp) / "plans"
         plans_dir.mkdir()
         (plans_dir / "001-first.md").write_text(done_plan(1), encoding="utf-8")
@@ -569,6 +607,7 @@ def test_check_executable() -> bool:
         check(result.returncode == 3, "non-TODO selected plan exits 3", failures)
 
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()
         plans_dir = Path(tmp) / "plans"
         plans_dir.mkdir()
         (plans_dir / "001-first.md").write_text(numbered_plan(1), encoding="utf-8")
@@ -591,6 +630,7 @@ def test_check_executable() -> bool:
         )
 
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()
         plans_dir = Path(tmp) / "plans"
         plans_dir.mkdir()
         (plans_dir / "001-first.md").write_text(
@@ -609,6 +649,7 @@ def test_selected_directory_containment() -> bool:
     failures: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        (root / ".git").mkdir()
         default_dir = root / "docs" / "dev" / "plans"
         alternate = root / "docs" / "dev" / "advisor-plans"
         default_dir.mkdir(parents=True)
@@ -650,6 +691,19 @@ def test_selected_directory_containment() -> bool:
         )
         check(result.returncode == 0, "backslash input path resolves", failures)
 
+        # The documented repo-relative invocation works from a subdirectory.
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "docs/dev/advisor-plans"],
+            capture_output=True,
+            text=True,
+            cwd=root / "docs",
+        )
+        check(
+            result.returncode == 0,
+            "subdirectory invocation resolves against the repository root",
+            failures,
+        )
+
         # Escapes and omissions fail before any read or write.
         result = subprocess.run(
             [sys.executable, str(GENERATOR), "--plans-dir", "../outside"],
@@ -675,6 +729,84 @@ def test_selected_directory_containment() -> bool:
         )
         check(result.returncode == 2, "nonexistent directory exits 2", failures)
 
+    with tempfile.TemporaryDirectory() as tmp:
+        # A .git *file* (linked worktree) anchors the root the same way.
+        root = Path(tmp)
+        (root / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+        plans = root / "plans"
+        plans.mkdir()
+        (plans / "001-test-plan.md").write_text(plan_frontmatter(), encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "plans"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 0, ".git file (worktree) marks the root", failures)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # Outside any repository the helper refuses to run. Guarded: skip if
+        # the machine's temp directory itself sits inside someone's repo.
+        root = Path(tmp)
+        (root / "plans").mkdir()
+        if not any((p / ".git").exists() for p in (root, *root.parents)):
+            result = subprocess.run(
+                [sys.executable, str(GENERATOR), "--plans-dir", "plans"],
+                capture_output=True,
+                text=True,
+                cwd=root,
+            )
+            check(result.returncode == 2, "no enclosing repository exits 2", failures)
+            check(
+                "not inside a git repository" in result.stderr,
+                "no-repo diagnostic names the cause",
+                failures,
+            )
+
+    for failure in failures:
+        print(f"  {failure}")
+    return not failures
+
+
+def test_archive_lifecycle() -> bool:
+    """Archived closed plans satisfy dependencies and leave the active table."""
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        plans_dir = root / "plans"
+        (plans_dir / "archive").mkdir(parents=True)
+        (plans_dir / "archive" / "001-first.md").write_text(
+            done_plan(1), encoding="utf-8"
+        )
+        (plans_dir / "002-second.md").write_text(
+            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
+        )
+        result = run_generator(plans_dir)
+        check(result.returncode == 0, "archive-backed backlog generates", failures)
+        index = (plans_dir / "README.md").read_text(encoding="utf-8")
+        check(
+            not any(line.startswith("| IMP-001 ") for line in index.splitlines()),
+            "archived plan is out of the active table",
+            failures,
+        )
+        check("## Archived Plans" in index, "archived section is rendered", failures)
+        result = run_generator(plans_dir, "--check-executable", "IMP-002")
+        check(
+            result.returncode == 0, "archived DONE dependency satisfies the gate", failures
+        )
+
+        # A rejected dependency must still block, archived or not.
+        (plans_dir / "archive" / "001-first.md").write_text(
+            numbered_plan(
+                1,
+                status="status: REJECTED",
+                issue="issue: null\nstatus_note: replaced",
+            ),
+            encoding="utf-8",
+        )
+        result = run_generator(plans_dir, "--check-executable", "IMP-002")
+        check(result.returncode == 3, "archived REJECTED dependency blocks", failures)
     for failure in failures:
         print(f"  {failure}")
     return not failures
@@ -688,6 +820,10 @@ def test_docs_contract() -> bool:
     ).read_text(encoding="utf-8")
     closing = (
         REPO_ROOT / "skills" / "improve" / "references" / "closing-the-loop.md"
+    ).read_text(encoding="utf-8")
+    skill = (REPO_ROOT / "skills" / "improve" / "SKILL.md").read_text(encoding="utf-8")
+    hosts = (
+        REPO_ROOT / "skills" / "improve" / "references" / "host-compatibility.md"
     ).read_text(encoding="utf-8")
     check(
         "STATUS, HEAD SHA, FILES CHANGED," in template,
@@ -704,6 +840,29 @@ def test_docs_contract() -> bool:
         "dispatch preconditions use the authoritative gate",
         failures,
     )
+    for field in ("STATUS:", "HEAD SHA:", "FILES CHANGED:", "VERIFICATION RESULTS:", "NOTES:"):
+        check(
+            field in closing,
+            f"dispatch report format carries the plan's {field.rstrip(':')} field",
+            failures,
+        )
+    for name, text in (("SKILL.md", skill), ("closing-the-loop.md", closing)):
+        check(
+            "enforced sandbox" in text,
+            f"{name} carries the untrusted-repo sandbox exception",
+            failures,
+        )
+    check(
+        "Enforced sandbox" in hosts,
+        "capability contract lists the enforced-sandbox capability",
+        failures,
+    )
+    for name, text in (("plan-template.md", template), ("closing-the-loop.md", closing)):
+        check(
+            "verification_environment" in text,
+            f"{name} carries the verification_environment field",
+            failures,
+        )
     for failure in failures:
         print(f"  {failure}")
     return not failures
@@ -721,6 +880,7 @@ def main() -> int:
         ("deterministic-output", test_deterministic_output),
         ("check-executable", test_check_executable),
         ("selected-directory-containment", test_selected_directory_containment),
+        ("archive-lifecycle", test_archive_lifecycle),
         ("docs-contract", test_docs_contract),
     ):
         if test():

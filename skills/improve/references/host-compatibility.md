@@ -16,6 +16,7 @@ you have not confirmed exists.
 | Bounded read-only worker delegation | Parallel audit (optional) | Audit sequentially yourself in category-priority order |
 | Skill-resource visibility to workers | Cheap delegated prompts | Inline the finding contract and category guidance into each worker prompt |
 | Isolated writable executor | Automatic `execute` | Hand the plan over for manual execution |
+| Enforced sandbox for repository-code execution | Untrusted-repo verification (optional) | Executor edits files only; verification reported as skipped; done criteria handed to the user |
 | Executor continuation or redispatch | REVISE round | Redispatch fresh with the full plan, prior report, current SHAs, and the feedback |
 | Execution locator (local path, task id, branch, or PR URL) | Review and reconcile | Without any locator, automatic execution is off — manual handoff |
 | Git base/head identity and diff access | Review, drift checks, reconcile | Automatic execution is off — manual handoff |

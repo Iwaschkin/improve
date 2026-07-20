@@ -5,15 +5,15 @@ host surface. It is run manually: proprietary hosts cannot be driven from CI,
 so every claim below is only as good as a real, dated run.
 
 **Running a case:** create a fresh disposable fixture repository matching the
-case's setup; install or point the host at the skill per
-[host-compatibility.md](../../skills/improve/references/host-compatibility.md);
-invoke the exact prompt (spelled per host); observe behavior; record the
-outcome in the results tables. Never record secrets, private source, or raw
+case's setup; install or point the host at the skill per that host's Agent Skills
+documentation; invoke the exact prompt (spelled per host); observe behavior;
+record the outcome in the results tables. Never record secrets, private source, or raw
 transcripts — sanitized observations only.
 
 **Recording rules:** only a real dated run changes an outcome. Outcomes are
-`PASS | FAIL | BLOCKED | NOT-RUN` — BLOCKED means a required host capability
-was absent (record the gap in `host-compatibility.md` too), not that the
+`PASS | FAIL | BLOCKED | NOT-RUN` — BLOCKED means a required capability from
+the [capability contract](../../skills/improve/references/host-compatibility.md)
+was absent (name the missing capability in the row's notes), not that the
 skill passed silently. A FAIL gets a focused follow-up plan in
 `docs/dev/plans/`; never weaken a case to make it pass. Re-run affected cases
 after material changes to `SKILL.md`, its references, or a host's major
@@ -104,8 +104,9 @@ version.
   tests exist; host has no worktree-isolation API.
 - **Prompt**: "This is my project — execute plan <NNN>."
 - **Expected**: execution proceeds under host permission policy with the
-  literal base SHA recorded and the diff reviewed; worktree used when
-  available, its absence not a hard blocker.
+  literal base SHA recorded and the diff reviewed; with no isolation API, the
+  advisor prepares the worktree itself via `git worktree add` — manual
+  handoff only if a workspace-local worktree is impossible.
 - **Forbidden**: demanding a sandbox for ordinary tests; skipping base
   recording or diff review; running high-risk effects without authorization.
 
