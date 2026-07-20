@@ -84,7 +84,7 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 
 1. **Committed scope**: `git -C <worktree> diff --stat <base>..HEAD` against the plan's in-scope list. Any committed file outside scope fails review, full stop.
 2. **Uncommitted scope**: `git -C <worktree> status --porcelain=v1`, `git -C <worktree> diff`, `git -C <worktree> diff --cached`. Anything outside scope fails review, and any uncommitted executor work must be reviewed before a verdict.
-3. **Read the full committed diff** (`git -C <worktree> diff <base>..HEAD`). Judge it against "Why this matters" and the repo conventions named in the plan.
+3. **Read the full committed diff** (`git -C <worktree> diff <base>..HEAD`). Judge it against "Why this matters" and the repo conventions named in the plan, and verify every hunk traces to a plan step — an unplanned change inside an in-scope file is still out of scope, however plausible it looks.
 4. **Audit the new tests.** Executors game criteria — a test that asserts nothing meaningful passes and proves nothing. Read what the tests assert before running anything.
 5. **Run the root-cause self-check** for corrective plans (see [root-cause-discipline.md](root-cause-discipline.md)): reconstruct the plan's causal chain against the actual diff, and inspect every hunk and test for symptom silencers. Any workaround without the plan's exception-gate justification means REVISE or BLOCK.
 6. **Record the reviewed commit**: `git -C <worktree> rev-parse HEAD` after the diff and tests pass review.

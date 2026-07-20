@@ -878,6 +878,12 @@ def test_docs_contract() -> bool:
         failures,
     )
     check(
+        "crosses that boundary by construction" in playbook
+        and "crosses that boundary by construction" in skill,
+        "agent-targeting injection clause is in both homes",
+        failures,
+    )
+    check(
         "Coverage receipt" in playbook and "coverage receipt" in skill,
         "worker coverage receipt is defined and required in the worker prompt",
         failures,

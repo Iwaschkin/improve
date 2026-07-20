@@ -76,7 +76,9 @@ spelling; substitute your host's:
 | Cursor | `/improve` or automatic discovery from the task description |
 
 Natural language matching the skill's description is the portable fallback on
-every conforming host.
+every conforming host. The spellings above come from each host's
+documentation; per-host behavioral verification status lives in the
+[conformance checklist](docs/dev/conformance.md).
 
 ```text
 /improve                        full audit → prioritized findings → plans
@@ -270,7 +272,8 @@ CI runs all three on Ubuntu and Windows
 (32 KiB / 400 lines, checker-enforced) keeps the always-loaded prompt lean —
 detail belongs in phase-loaded references. This repo plans its own
 improvement work in [docs/dev/plans/](docs/dev/plans/README.md) using the
-skill itself; merged plans are removed — the commit history is the record.
+skill itself; merged plans move to `docs/dev/plans/archive/` — the active
+backlog holds only open work.
 
 ## Provenance & license
 
