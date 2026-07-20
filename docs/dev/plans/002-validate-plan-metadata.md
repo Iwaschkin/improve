@@ -1,23 +1,25 @@
 ---
 id: IMP-002
 title: Reject invalid plan metadata and test the generator
-status: TODO
+status: DONE
 priority: P1
 effort: M
 risk: MED
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/resources/generate_plan_index.py
   - scripts/generate_plan_index_tests.py
   - skills/improve/references/plan-template.md
   - .github/workflows/check.yml
 dependencies: []
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 83cc18a33637b1df03e1d8118f24ac1995e8ab75
+merged_commit: 83cc18a33637b1df03e1d8118f24ac1995e8ab75
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

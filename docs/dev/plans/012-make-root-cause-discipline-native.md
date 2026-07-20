@@ -1,14 +1,14 @@
 ---
 id: IMP-012
 title: Make root-cause discipline native to Improve
-status: TODO
+status: DONE
 priority: P1
 effort: M
 risk: MED
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/SKILL.md
   - skills/improve/references/root-cause-discipline.md
@@ -18,9 +18,11 @@ scope:
 dependencies:
   - IMP-005
   - IMP-009
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 56add7840be720c1ac35db82ae6eeaebddbb25a4
+merged_commit: 56add7840be720c1ac35db82ae6eeaebddbb25a4
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

@@ -1,23 +1,26 @@
 ---
 id: IMP-003
 title: Adopt trust-aware execution profiles
-status: TODO
+status: DONE
 priority: P1
 effort: M
 risk: MED
 category: security
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/SKILL.md
   - skills/improve/references/closing-the-loop.md
   - skills/improve/references/plan-template.md
   - README.md
 dependencies: []
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 2977bba35756e4fff739a32ec826454bd24ab758
+merged_commit: 2977bba35756e4fff739a32ec826454bd24ab758
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
+status_note: landed in 1.x; profile mechanism replaced by the 2.0 trust rule
 sensitive: false
 issue: null
 ---

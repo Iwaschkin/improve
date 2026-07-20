@@ -1,14 +1,14 @@
 ---
 id: IMP-009
 title: Make lifecycle state reviewer-owned and gate execution from plan files
-status: TODO
+status: DONE
 priority: P1
 effort: M
 risk: MED
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/resources/plan_state.py
   - skills/improve/resources/generate_plan_index.py
@@ -19,9 +19,11 @@ scope:
 dependencies:
   - IMP-002
   - IMP-008
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: f30b3a35c64ab8648fcb6a93f8c1d19077087d66
+merged_commit: f30b3a35c64ab8648fcb6a93f8c1d19077087d66
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

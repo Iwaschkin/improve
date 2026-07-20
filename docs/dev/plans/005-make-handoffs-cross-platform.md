@@ -1,14 +1,14 @@
 ---
 id: IMP-005
 title: Make Git and plan handoffs cross-platform
-status: TODO
+status: DONE
 priority: P1
 effort: M
 risk: LOW
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/SKILL.md
   - skills/improve/references/closing-the-loop.md
@@ -18,9 +18,11 @@ scope:
 dependencies:
   - IMP-003
   - IMP-004
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: b252d80bc221ef9aafc2b1f17363e661e6dea539
+merged_commit: b252d80bc221ef9aafc2b1f17363e661e6dea539
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

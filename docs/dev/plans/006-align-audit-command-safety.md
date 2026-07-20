@@ -1,14 +1,14 @@
 ---
 id: IMP-006
 title: Align audit commands with the execution safety policy
-status: TODO
+status: DONE
 priority: P2
 effort: S
 risk: LOW
 category: security
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/SKILL.md
   - skills/improve/references/audit-playbook.md
@@ -16,9 +16,11 @@ scope:
   - README.md
 dependencies:
   - IMP-003
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: ec9ad7114f1785786e149f664b7f7077568b06e2
+merged_commit: ec9ad7114f1785786e149f664b7f7077568b06e2
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

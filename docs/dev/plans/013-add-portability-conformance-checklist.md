@@ -1,14 +1,14 @@
 ---
 id: IMP-013
 title: Add a manual cross-host conformance checklist
-status: TODO
+status: DONE
 priority: P2
 effort: S
 risk: LOW
 category: tests
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - docs/dev/conformance.md
   - README.md
@@ -16,9 +16,11 @@ dependencies:
   - IMP-007
   - IMP-010
   - IMP-012
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 6aaceb04b29ecf5d30c0f6efe73e572406a34964
+merged_commit: 6aaceb04b29ecf5d30c0f6efe73e572406a34964
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

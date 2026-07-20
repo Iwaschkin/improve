@@ -1,14 +1,14 @@
 ---
 id: IMP-007
 title: Validate the portable skill independently of host packaging
-status: TODO
+status: DONE
 priority: P2
 effort: M
 risk: LOW
 category: dx
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - scripts/check.py
   - scripts/check_tests.py
@@ -17,9 +17,11 @@ scope:
   - .claude-plugin/marketplace.json
 dependencies:
   - IMP-004
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 3a6594438865adc60a1e229a808258b73ee2dadf
+merged_commit: 3a6594438865adc60a1e229a808258b73ee2dadf
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

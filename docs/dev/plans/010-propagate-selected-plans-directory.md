@@ -1,14 +1,14 @@
 ---
 id: IMP-010
 title: Resolve and propagate one selected plans directory
-status: TODO
+status: DONE
 priority: P2
 effort: M
 risk: LOW
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/SKILL.md
   - skills/improve/references/closing-the-loop.md
@@ -19,9 +19,11 @@ scope:
   - README.md
 dependencies:
   - IMP-009
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 1f4e015c00330c161bba69811622a0f0949c23a1
+merged_commit: 1f4e015c00330c161bba69811622a0f0949c23a1
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
 sensitive: false
 issue: null
 ---

@@ -1,14 +1,14 @@
 ---
 id: IMP-011
 title: Reconcile squash, cherry-pick, and rebased integrations
-status: TODO
+status: DONE
 priority: P2
 effort: M
 risk: MED
 category: bug
 base_commit: 4adde10c1d1d6308c485b87efbbefb6a6a241785
 created_at: 2026-07-19
-updated_at: 2026-07-19
+updated_at: 2026-07-20
 scope:
   - skills/improve/references/closing-the-loop.md
   - skills/improve/references/plan-template.md
@@ -18,9 +18,12 @@ scope:
   - scripts/generate_plan_index_tests.py
 dependencies:
   - IMP-010
-execution_base: null
-reviewed_commit: null
-merged_commit: null
+execution_base: 4adde10c1d1d6308c485b87efbbefb6a6a241785
+reviewed_commit: 6a57612333037f7baa4209f12c31f87ef6460470
+merged_commit: 6a57612333037f7baa4209f12c31f87ef6460470
+execution_locator: manual (implemented directly; no dispatched executor)
+verified_at: 2026-07-20T00:00:00Z
+status_note: landed in 1.x; evidence ladder reduced to diff comparison in 2.0
 sensitive: false
 issue: null
 ---
