@@ -167,6 +167,40 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool]:
     if name == "oversized-skill":
         files["skills/improve/SKILL.md"] = BASE_SKILL + ("filler line\n" * 500)
         return files, False
+    if name == "oversized-bytes-skill":
+        files["skills/improve/SKILL.md"] = BASE_SKILL + ("x" * 40000) + "\n"
+        return files, False
+    if name == "two-skills":
+        files["skills/second/SKILL.md"] = BASE_SKILL.replace(
+            "name: improve", "name: second"
+        )
+        return files, False
+    if name == "missing-description":
+        files["skills/improve/SKILL.md"] = BASE_SKILL.replace(
+            "description: Test improve skill fixture.\n", ""
+        )
+        return files, False
+    if name == "missing-compatibility":
+        files["skills/improve/SKILL.md"] = BASE_SKILL.replace(
+            "compatibility: >\n"
+            "  Audit and planning require Agent Skills support and file access.\n",
+            "",
+        )
+        return files, False
+    if name == "install-target-mismatch":
+        files["README.md"] = BASE_README.replace(
+            "npx skills add Iwaschkin/improve", "npx skills add Iwaschkin/other"
+        )
+        return files, False
+    if name == "footnote-not-link":
+        files["README.md"] += "\n[^1]: A footnote definition, not a link.\n"
+        return files, True
+    if name == "code-span-link":
+        files["README.md"] += "\nWrite links as `[text](missing.md)` in Markdown.\n"
+        return files, True
+    if name == "root-absolute-link":
+        files["README.md"] += "\n[Bad](/absolute/target.md)\n"
+        return files, False
     raise ValueError(f"unknown fixture {name}")
 
 
@@ -267,6 +301,14 @@ def main() -> int:
         "name-invalid-too-long",
         "variant-token-no-slash",
         "oversized-skill",
+        "oversized-bytes-skill",
+        "two-skills",
+        "missing-description",
+        "missing-compatibility",
+        "install-target-mismatch",
+        "footnote-not-link",
+        "code-span-link",
+        "root-absolute-link",
     ]
     with tempfile.TemporaryDirectory() as temp_dir:
         parent = Path(temp_dir)

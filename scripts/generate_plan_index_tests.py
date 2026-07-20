@@ -398,6 +398,41 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
             False,
             ["duplicate rejection id"],
         )
+    if name == "unknown-key":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    issue="issue: null\nexecution_profile: trusted-local"
+                )
+            },
+            False,
+            ["execution_profile", "unknown frontmatter key"],
+        )
+    if name == "bracket-title":
+        return (
+            {"001-test-plan.md": plan_frontmatter(title="title: Fix ] bracket handling")},
+            True,
+            [],
+        )
+    if name == "rejections-impossible-date":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(),
+                "rejections.json": json.dumps(
+                    [
+                        {
+                            "id": "SEC-01",
+                            "title": "t",
+                            "rationale": "r",
+                            "evidence": [],
+                            "recorded_at": "2026-13-45",
+                        }
+                    ]
+                ),
+            },
+            False,
+            ["recorded_at", "not a real calendar date"],
+        )
     if name == "archive-valid":
         return (
             {
@@ -458,6 +493,7 @@ EXTRA_INDEX_ASSERTS = {
         "(archive/001-first.md) (DONE)",
         "IMP-002",
     ],
+    "bracket-title": ["Fix \\] bracket handling"],
 }
 
 
@@ -503,6 +539,9 @@ CASES = [
     "archive-valid",
     "archive-nonterminal",
     "archive-duplicate-id",
+    "unknown-key",
+    "bracket-title",
+    "rejections-impossible-date",
 ]
 
 

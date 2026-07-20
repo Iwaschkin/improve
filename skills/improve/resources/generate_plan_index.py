@@ -79,6 +79,14 @@ REQUIRED_FIELDS = (
 # Execution-record fields; optional (absent == null), validated when present.
 OPTIONAL_SHAS = ("execution_base", "reviewed_commit", "merged_commit")
 OPTIONAL_STRINGS = ("execution_locator", "verification_environment", "status_note", "issue")
+# The complete frontmatter vocabulary; anything else is a typo or a retired
+# field and fails closed rather than being silently dropped.
+KNOWN_FIELDS = (
+    set(REQUIRED_FIELDS)
+    | set(OPTIONAL_SHAS)
+    | set(OPTIONAL_STRINGS)
+    | {"verified_at", "superseded_by"}
+)
 
 REJECTION_KEYS = {"id", "title", "rationale", "evidence", "recorded_at"}
 
@@ -207,6 +215,9 @@ def validate_plan(
     data: dict[str, PlanValue], filename: str, errors: list[Diagnostic]
 ) -> None:
     """Validate one plan's fields against the published template schema."""
+    for key in data:
+        if key not in KNOWN_FIELDS:
+            errors.append(Diagnostic(filename, "unknown frontmatter key", field=key))
     missing = [field for field in REQUIRED_FIELDS if field not in data]
     for field in missing:
         errors.append(Diagnostic(filename, "required field is missing", field=field))
@@ -433,6 +444,16 @@ def load_rejections(plans_dir: Path, errors: list[Diagnostic]) -> list[dict[str,
         recorded_at = entry.get("recorded_at")
         if not isinstance(recorded_at, str) or not DATE_RE.fullmatch(recorded_at):
             errors.append(Diagnostic(filename, f"{where}: recorded_at must be YYYY-MM-DD"))
+        else:
+            try:
+                date.fromisoformat(recorded_at)
+            except ValueError:
+                errors.append(
+                    Diagnostic(
+                        filename,
+                        f"{where}: recorded_at is not a real calendar date: {recorded_at!r}",
+                    )
+                )
         entry_id = entry.get("id")
         if isinstance(entry_id, str):
             if entry_id in seen_ids:
@@ -655,8 +676,14 @@ def check_executable(rows: list[dict[str, PlanValue]], plan_id: str) -> tuple[in
 
 
 def escape_cell(text: str) -> str:
-    """Keep arbitrary scalar content from corrupting the Markdown table."""
-    return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
+    """Keep arbitrary scalar content from corrupting tables and link text."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace("|", "\\|")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("\n", " ")
+    )
 
 
 def cell(value: PlanValue) -> str:

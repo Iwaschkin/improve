@@ -22,7 +22,7 @@ SKILL_NAME_MAX = 64
 SKILL_MD_MAX_BYTES = 32 * 1024
 SKILL_MD_MAX_LINES = 400
 INLINE_LINK_RE = re.compile(r"!?\[[^\]]+\]\(([^)\n]+)\)")
-REFERENCE_LINK_RE = re.compile(r"^\s*\[[^\]]+\]:\s*(\S+)")
+REFERENCE_LINK_RE = re.compile(r"^\s*\[(?!\^)[^\]]+\]:\s*(\S+)")
 REQUIRED_VARIANTS = {
     "quick",
     "deep",
@@ -288,13 +288,29 @@ class Checker:
                 if not filename.endswith(".md"):
                     continue
                 path = current_dir / filename
-                text = path.read_text(encoding="utf-8")
+                rel_path = path.relative_to(self.root).as_posix()
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError) as exc:
+                    message = f"check4: cannot read {rel_path}: {exc}"
+                    link_failures.append(message)
+                    self.fail(message)
+                    continue
                 for line_number, target in markdown_links(text):
                     if should_skip_link(target):
                         continue
+                    if target.startswith("/"):
+                        # Root-absolute targets resolve differently per
+                        # platform; a portable repo links relatively.
+                        message = (
+                            f"check4: root-absolute link in {rel_path}:{line_number}: "
+                            f"{target!r} — use a relative path"
+                        )
+                        link_failures.append(message)
+                        self.fail(message)
+                        continue
                     resolved = resolve_link(path.parent, target)
                     if not resolved.exists():
-                        rel_path = path.relative_to(self.root).as_posix()
                         target_rel = os.path.relpath(resolved, self.root)
                         message = f"check4: broken link in {rel_path}:{line_number}: {target!r} -> {target_rel!r} not found"
                         link_failures.append(message)
@@ -333,7 +349,7 @@ class Checker:
         if not self.skill_text:
             return
         size = len(self.skill_text.encode("utf-8"))
-        lines = self.skill_text.count("\n") + 1
+        lines = len(self.skill_text.splitlines())
         problems: list[str] = []
         if size > SKILL_MD_MAX_BYTES:
             problems.append(f"{size} bytes exceeds the {SKILL_MD_MAX_BYTES}-byte budget")
@@ -451,22 +467,27 @@ def markdown_links(text: str) -> list[tuple[int, str]]:
     links: list[tuple[int, str]] = []
     in_fence = False
     fence_marker = ""
+    fence_length = 0
     for line_number, line in enumerate(text.splitlines(), start=1):
         fence_match = re.match(r"^(`{3,}|~{3,})", line.strip())
         if fence_match:
-            marker = fence_match.group(1)[0]
+            marker = fence_match.group(1)
             if not in_fence:
                 in_fence = True
-                fence_marker = marker
-            elif marker == fence_marker:
+                fence_marker = marker[0]
+                fence_length = len(marker)
+            elif marker[0] == fence_marker and len(marker) >= fence_length:
                 in_fence = False
                 fence_marker = ""
+                fence_length = 0
             continue
         if in_fence:
             continue
-        for match in INLINE_LINK_RE.finditer(line):
+        # Link syntax inside inline code spans is illustration, not a link.
+        scannable = re.sub(r"`[^`]*`", "", line)
+        for match in INLINE_LINK_RE.finditer(scannable):
             links.append((line_number, first_link_token(match.group(1))))
-        reference_match = REFERENCE_LINK_RE.match(line)
+        reference_match = REFERENCE_LINK_RE.match(scannable)
         if reference_match:
             links.append((line_number, first_link_token(reference_match.group(1))))
     return links
