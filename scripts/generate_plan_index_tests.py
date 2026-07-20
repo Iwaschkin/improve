@@ -825,6 +825,9 @@ def test_docs_contract() -> bool:
     hosts = (
         REPO_ROOT / "skills" / "improve" / "references" / "host-compatibility.md"
     ).read_text(encoding="utf-8")
+    playbook = (
+        REPO_ROOT / "skills" / "improve" / "references" / "audit-playbook.md"
+    ).read_text(encoding="utf-8")
     check(
         "STATUS, HEAD SHA, FILES CHANGED," in template,
         "template requires the five-field executor report",
@@ -863,6 +866,12 @@ def test_docs_contract() -> bool:
             f"{name} carries the verification_environment field",
             failures,
         )
+    check(
+        "canonical prefixes" in playbook
+        and all(f"`{p}`" in playbook for p in ("BUG", "SEC", "PERF", "TEST", "DEBT", "DEP", "DX", "DOCS", "DIR")),
+        "playbook defines the canonical finding-ID prefixes",
+        failures,
+    )
     for failure in failures:
         print(f"  {failure}")
     return not failures

@@ -1,8 +1,10 @@
 # Audit Playbook
 
-What to look for, per category. Each subagent (or direct audit pass) gets the relevant section plus the **Finding format** at the bottom. Adapt depth to repo size — a 2K-line CLI gets a lighter pass than a 500K-line monorepo.
+What to look for, per category. Each subagent (or direct audit pass) gets the relevant section plus the **Finding format** at the bottom. Adapt depth to repo size — a 2K-line CLI gets a lighter pass than a 500K-line monorepo. The examples throughout are illustrative and lean JS/TS — translate each signal to the repo's actual stack; every ecosystem has its own spelling of a swallowed error or an overruled type checker.
 
 A finding is only a finding with evidence. "Probably has N+1 queries somewhere" is not a finding; `orders/api.ts:142 issues one query per order item inside a loop` is.
+
+Report at the altitude of the cause: when a linter, type-checker, or CI rule would catch the entire class, the finding is the missing rule (a DX & tooling finding, citing 2–5 instances as evidence) — not N per-instance findings.
 
 ---
 
@@ -10,14 +12,15 @@ A finding is only a finding with evidence. "Probably has N+1 queries somewhere" 
 
 The highest-trust category — real bugs found by reading, not speculation.
 
-- Error handling: swallowed exceptions, empty catch blocks, `catch (e) { console.log(e) }` on critical paths, missing error states in UI code.
+- Error handling: swallowed exceptions, empty catch blocks, `catch (e) { console.log(e) }` on critical paths, missing error states in UI code. Ecosystem spellings vary: a bare `except: pass`, an ignored Go `err` return, a stray `unwrap()` on a fallible path.
 - Async hazards: unawaited promises, race conditions on shared state, missing cancellation/cleanup (stale closures in React effects, listeners never removed).
 - Null/undefined flows: non-null assertions (`!`) on values that can be null, optional chaining hiding a value that must exist, unchecked array indexing.
 - Boundary conditions: off-by-one, empty-collection handling, timezone/locale assumptions, integer overflow in counters/IDs.
 - State machines: impossible-state combinations representable in types, status enums with unhandled branches (look for `default:` that silently no-ops).
 - Concurrency: check-then-act on shared resources, missing transactions around multi-write operations, idempotency of retried operations (webhooks, queues).
-- Type escape hatches: `any` / `as` casts / `@ts-ignore` clusters — each one is a place the compiler was overruled.
+- Type escape hatches: `any` / `as` casts / `@ts-ignore`, `# type: ignore` / `cast()`, `interface{}` assertions, `unsafe` blocks — each cluster is a place the compiler was overruled.
 - Resource leaks: unclosed handles, connections, subscriptions; missing `finally`.
+- Accessibility (repos that ship UI): unlabeled interactive controls, missing keyboard paths, focus traps — user-facing correctness, not polish; cite specific components.
 
 ## 2. Security
 
@@ -33,7 +36,7 @@ Review only what is directly supported by code evidence. Keep findings framed as
 - Data crossing into interpreters or privileged APIs: SQL or shell operations assembled from request data (SQL/command injection), HTML sinks fed by user-controlled content (XSS), dynamic execution APIs used with runtime input, or filesystem paths derived from request data (path traversal). Describe the safer API or validation boundary; do not provide runnable examples.
 - Access control: endpoints/server actions that lack server-side identity checks, authorization enforced only in the client, object access by ID without ownership or tenant checks (IDOR), or missing request authenticity checks (CSRF) on state-changing routes.
 - Input contracts: API boundaries that trust request bodies without schema validation, file upload handling without clear type/size/storage constraints, or broad object assignment from request data into persistence models (mass assignment).
-- Dependency posture, reviewed in this order: (1) inspect manifests and lockfiles statically; (2) establish reachability from repository imports and build/distribution paths; (3) when network access is permitted, consult official advisories, vendor documentation, or registries; (4) optionally run an ecosystem audit command — `npm audit`, `pip-audit`, `cargo audit` are ecosystem-specific examples, not interchangeable and not intrinsically read-only — only after primary documentation confirms the exact invocation neither installs packages nor executes repository lifecycle/plugin code, and any required network permission is in hand; (5) otherwise record `online_verification: unavailable` and mark the finding provisional. Report only critical/high advisories that affect reachable runtime code or build/distribution paths; avoid low-signal audit noise.
+- Dependency posture, reviewed in this order: (1) inspect manifests and lockfiles statically; (2) establish reachability from repository imports and build/distribution paths; (3) when network access is permitted, consult official advisories, vendor documentation, or registries; (4) optionally run an ecosystem audit command — `npm audit`, `pip-audit`, `cargo audit` are ecosystem-specific examples, not interchangeable and not intrinsically read-only — only after primary documentation confirms the exact invocation neither installs packages nor executes repository lifecycle/plugin code, and any required network permission is in hand; (5) otherwise record `online_verification: unavailable` and mark the finding provisional. Report only critical/high advisories that affect reachable runtime code or build/distribution paths; avoid low-signal audit noise. Record the outcome in the dependency-evidence fields defined in section 6.
 - Production configuration: overly broad CORS where credentials are allowed, missing response-hardening headers (e.g. CSP) where sensitive browser surfaces exist, cookies missing appropriate `HttpOnly`/`Secure`/`SameSite` attributes, or debug/verbose behavior enabled in production configuration.
 - Data minimization: PII or sensitive operational data in logs, stack traces returned to clients, or internal error details exposed through API responses.
 
@@ -70,7 +73,7 @@ The goal is not a percentage — it's *which untested code is dangerous*.
 
 ## 6. Dependencies & Migrations
 
-Dependency, vulnerability, support-window, and latest-version claims must use live evidence. If online verification is unavailable, label the finding provisional instead of asserting it as current. Record:
+Dependency, vulnerability, support-window, and latest-version claims must use live evidence. If online verification is unavailable, label the finding provisional instead of asserting it as current. Verification order — static inspection before any ecosystem audit command — follows section 2's dependency-posture rule; a worker given this section without it must not run audit commands. Record:
 
 - `checked_at`: ISO date of the verification attempt.
 - `installed_version`: version observed in the repo.
@@ -83,6 +86,7 @@ Dependency, vulnerability, support-window, and latest-version claims must use li
 - Deprecated APIs in use that have announced removal timelines.
 - Abandoned dependencies (no release in years, archived repos) on critical paths.
 - Duplicate dependencies solving the same problem (two date libs, two HTTP clients).
+- License compatibility: a dependency whose license conflicts with the repo's own license or distribution model (e.g. copyleft in a proprietary codebase) — name the specific license pair and where it's introduced.
 - Lockfile/manifest drift, version pinning inconsistencies across a monorepo.
 - For each migration candidate, estimate blast radius (files touched) — that drives effort and whether to recommend it at all.
 
@@ -93,6 +97,7 @@ Dependency, vulnerability, support-window, and latest-version claims must use li
 - Onboarding friction: README setup steps that are wrong/incomplete, undocumented required env vars, no `.env.example`.
 - Missing `CLAUDE.md`/`AGENTS.md` — for repos where agents will execute the plans, this is high-leverage: recommend one and include its outline as a plan.
 - Error messages/logging: unstructured logs on services, missing request IDs/correlation, debugging requiring code changes.
+- Service lifecycle (services): no health/readiness endpoint where the deploy target expects one; missing graceful shutdown — in-flight work dropped on termination.
 
 ## 8. Docs
 
@@ -118,7 +123,9 @@ Direction findings use the standard format with two adaptations: **Impact** is p
 
 ## Finding format
 
-For branch-scoped audits, include files changed in commits plus staged, unstaged, and untracked paths reported by `git status --porcelain=v1`. Tag findings as `introduced` when the branch or dirty-tree change created them, and `pre-existing` when they are legacy issues in touched files.
+For branch-scoped audits (the scope itself — changed, staged, unstaged, and untracked files — is computed by the dispatching instruction, not here), tag every finding `introduced` when the branch or dirty-tree change created it, and `pre-existing` when it is a legacy issue in touched files.
+
+`CATEGORY` uses the canonical prefixes: `BUG` (correctness), `SEC` (security), `PERF` (performance), `TEST` (test coverage), `DEBT` (tech debt & architecture), `DEP` (dependencies & migrations), `DX` (DX & tooling), `DOCS` (docs), `DIR` (direction). Number `NN` from 01 per category within one audit. The advisor normalizes IDs during vet — collisions between workers and renumbering are the advisor's job, and matching a finding against recorded rejections across runs uses its evidence and content, never the ID alone.
 
 Every finding, from every category and every subagent, comes back in this shape:
 
@@ -126,7 +133,7 @@ Every finding, from every category and every subagent, comes back in this shape:
 ### [CATEGORY-NN] Short imperative title
 
 - **Evidence**: `path/file.ts:123` — one-sentence description of what's there. (Repeat per location; 2–5 strongest locations, note "and ~N similar sites" if widespread.)
-- **Impact**: What goes wrong / what's being paid because of this. Concrete: "every order-list render issues 1+N queries", not "suboptimal".
+- **Impact**: What goes wrong / what's being paid because of this. Concrete: "every order-list render issues 1+N queries", not "suboptimal". Rate it HIGH (correctness, security, or data loss on a path that's actually used), MED (real ongoing cost — performance, money, developer time — with a workaround), or LOW (friction or polish).
 - **Effort**: S (hours) / M (a day-ish) / L (multi-day) — for the *fix*, including tests.
 - **Risk**: What the fix could break; LOW/MED/HIGH plus one line why.
 - **Confidence**: HIGH (read the code, certain) / MED (strong signal, needs verification) / LOW (smell, needs investigation). LOW-confidence findings may be reported but get an "investigate" plan, not a "fix" plan.
@@ -135,7 +142,7 @@ Every finding, from every category and every subagent, comes back in this shape:
 - **Causal chain** (CONFIRMED only): input or condition → exercised code path or contract → specific flaw → observed symptom or impact, with evidence at each non-obvious link.
 - **Correct fix layer** (corrective): the contract/module/state boundary that owns the flaw, and why the symptom surface is not sufficient.
 - **Rejected shortcuts** (corrective): the likely symptom-level responses — suppression, swallowed error, retry/sleep, special case, weakened test, shim — that would leave the cause present.
-- **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly. Never a symptom silencer without the full exception gate from `references/root-cause-discipline.md`.
+- **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly. A symptom silencer is acceptable only when the sketch itself records all four of: the confirmed cause; why the correct fix is genuinely unavailable; the correct fix and an objective removal condition; why this workaround is the narrowest possible and how it is tested.
 
 For dependency findings, add:
 
@@ -144,7 +151,7 @@ For dependency findings, add:
 
 ## Prioritization rubric
 
-Order findings by **leverage = impact ÷ effort, discounted by confidence and fix-risk**. Tiebreakers:
+Order findings by **leverage = impact ÷ effort, discounted by confidence and fix-risk** — all four on the scales defined in the finding format, so two sessions rank the same findings the same way. Tiebreakers:
 
 1. Anything that unblocks other findings (verification baseline, characterization tests) floats up.
 2. Security findings with HIGH confidence float above equivalent-leverage non-security findings.
