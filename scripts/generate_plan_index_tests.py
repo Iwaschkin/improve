@@ -72,7 +72,8 @@ def done_plan(number: int, dependencies: str = "dependencies: []") -> str:
         f"execution_base: {VALID_SHA}\n"
         f"reviewed_commit: {OTHER_SHA}\n"
         f"merged_commit: {OTHER_SHA}\n"
-        "verified_at: 2026-07-19T12:00:00Z",
+        "verified_at: 2026-07-19T12:00:00Z\n"
+        "verification_environment: host-policy",
         status="status: DONE",
     )
 
@@ -294,7 +295,7 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
                 )
             },
             False,
-            ["merged_commit", "verified_at"],
+            ["merged_commit", "verified_at", "verification_environment"],
         )
     if name == "lifecycle-blocked-without-note":
         return (
@@ -443,7 +444,7 @@ EXTRA_INDEX_ASSERTS = {
         "docs/dev/plans/.worktrees/001-test-plan",
         OTHER_SHA,
     ],
-    "lifecycle-valid-done": ["DONE", "2026-07-19T12:00:00Z"],
+    "lifecycle-valid-done": ["DONE", "2026-07-19T12:00:00Z", "host-policy"],
     "sensitive-marker": ["(sensitive)"],
     "pipe-escaping": ["Fix a \\| b handling"],
     "issue-rendered": ["https://github.com/example/repo/issues/7"],
@@ -820,6 +821,10 @@ def test_docs_contract() -> bool:
     closing = (
         REPO_ROOT / "skills" / "improve" / "references" / "closing-the-loop.md"
     ).read_text(encoding="utf-8")
+    skill = (REPO_ROOT / "skills" / "improve" / "SKILL.md").read_text(encoding="utf-8")
+    hosts = (
+        REPO_ROOT / "skills" / "improve" / "references" / "host-compatibility.md"
+    ).read_text(encoding="utf-8")
     check(
         "STATUS, HEAD SHA, FILES CHANGED," in template,
         "template requires the five-field executor report",
@@ -839,6 +844,23 @@ def test_docs_contract() -> bool:
         check(
             field in closing,
             f"dispatch report format carries the plan's {field.rstrip(':')} field",
+            failures,
+        )
+    for name, text in (("SKILL.md", skill), ("closing-the-loop.md", closing)):
+        check(
+            "enforced sandbox" in text,
+            f"{name} carries the untrusted-repo sandbox exception",
+            failures,
+        )
+    check(
+        "Enforced sandbox" in hosts,
+        "capability contract lists the enforced-sandbox capability",
+        failures,
+    )
+    for name, text in (("plan-template.md", template), ("closing-the-loop.md", closing)):
+        check(
+            "verification_environment" in text,
+            f"{name} carries the verification_environment field",
             failures,
         )
     for failure in failures:

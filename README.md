@@ -151,7 +151,8 @@ Repository-controlled commands (install, build, test, lint, package scripts)
 run only in repos you own or explicitly trust — trust is never inferred from
 a repo merely being open in your workspace. In a trusted repo they run under
 your host's normal permission policy; in an unfamiliar or untrusted repo the
-executor edits files only and verification is handed back to you. High-risk
+executor edits files only and verification is handed back to you (or runs
+inside a genuinely enforced host sandbox, when one exists). High-risk
 effects — dependency installs with lifecycle scripts, migrations,
 deployments, credentialed or broad network access, destructive operations —
 always require explicit authorization. Worktrees remain the default change
@@ -172,8 +173,11 @@ Ownership is strict: executors never write plan records — the advisor records
 EXECUTING at dispatch, the reviewer records REVIEWED/BLOCKED after review,
 and reconcile records DONE only after integration is confirmed and acceptance
 checks pass. Impossible states (a REVIEWED plan without a reviewed commit, a
-DONE plan without a merged commit and verification timestamp) fail validation
-outright.
+DONE plan without a merged commit, verification timestamp, and verification
+environment) fail validation outright. A REVIEWED plan with `merged_commit`
+already recorded is integrated but awaiting acceptance — reconcile promotes
+it to DONE once the checks pass, and re-opens DONE work whose recorded
+commit later vanishes from the target history.
 
 ## Bundled tooling
 

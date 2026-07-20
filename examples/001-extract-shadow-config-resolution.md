@@ -20,6 +20,7 @@ execution_base: null
 reviewed_commit: null
 merged_commit: null
 verified_at: null
+verification_environment: null
 superseded_by: null
 status_note: null
 sensitive: false

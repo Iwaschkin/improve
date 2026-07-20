@@ -34,6 +34,7 @@ execution_base: null
 reviewed_commit: null
 merged_commit: null
 verified_at: null
+verification_environment: null
 superseded_by: null
 status_note: null
 sensitive: false
@@ -247,7 +248,7 @@ For the human/agent who owns this code after the change lands:
 
 Generated from plan frontmatter by the bundled `resources/generate_plan_index.py` helper. The helper requires Python 3.10+: find an interpreter with `python3 --version` where that name is conventional, otherwise `python --version`, and accept only 3.10 or newer. Invoke the helper by the path of the currently loaded skill's `resources/` directory — never a guessed global install path. If no compatible interpreter or helper path is available, leave the plan files as they are and report that index generation is pending; the index never blocks the implementation.
 
-The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, unresolved or out-of-order dependencies, and impossible lifecycle states (a REVIEWED plan without a reviewed commit, a DONE plan without a merged commit and `verified_at`, a BLOCKED plan without a `status_note`) fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun. The same helper is the execution-eligibility gate: `--check-executable IMP-NNN` exits 0 only when the plan is TODO and every direct and transitive dependency is DONE.
+The helper validates every plan against this template's schema before writing: malformed or missing frontmatter, invalid enums, short SHAs, filename/ID mismatches, unresolved or out-of-order dependencies, and impossible lifecycle states (a REVIEWED plan without a reviewed commit, a DONE plan without a merged commit, `verified_at`, and `verification_environment`, a BLOCKED plan without a `status_note`) fail generation with a nonzero exit, and the previous index is preserved unchanged. Fix the reported plan files and rerun. The same helper is the execution-eligibility gate: `--check-executable IMP-NNN` exits 0 only when the plan is TODO and every direct and transitive dependency is DONE.
 
 Closed plans (DONE or REJECTED) may be moved to `<selected-plans-dir>/archive/` to keep the active backlog lean: the helper validates archived plans identically, refuses any open status there, resolves dependency and supersede references against them, and lists them in a compact `Archived Plans` section instead of the main table.
 

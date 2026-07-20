@@ -1,7 +1,7 @@
 {
   "name": "improve",
   "description": "Point it at a codebase and it figures out what's worth doing — bugs, perf, tech debt, what to build next — then writes plans any agent can execute. It can hand the work to a cheaper model and review the result. It never edits your code.",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "author": {
     "name": "Iwaschkin",
     "url": "https://github.com/Iwaschkin"

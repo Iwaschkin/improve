@@ -78,7 +78,7 @@ REQUIRED_FIELDS = (
 
 # Execution-record fields; optional (absent == null), validated when present.
 OPTIONAL_SHAS = ("execution_base", "reviewed_commit", "merged_commit")
-OPTIONAL_STRINGS = ("execution_locator", "status_note", "issue")
+OPTIONAL_STRINGS = ("execution_locator", "verification_environment", "status_note", "issue")
 
 REJECTION_KEYS = {"id", "title", "rationale", "evidence", "recorded_at"}
 
@@ -373,6 +373,12 @@ def validate_lifecycle(
             "commit at which the reviewed change is integrated",
         )
         require("verified_at", "status DONE requires the verified_at timestamp")
+        require(
+            "verification_environment",
+            "status DONE requires the verification environment — where the "
+            "acceptance checks actually ran (host policy, a named sandbox, or "
+            "the user's own run)",
+        )
     if status in {"BLOCKED", "REJECTED"}:
         require("status_note", f"status {status} requires a one-line status_note rationale")
 
@@ -678,6 +684,7 @@ EXECUTION_RECORD_FIELDS = (
     ("reviewed_commit", "reviewed"),
     ("merged_commit", "merged"),
     ("verified_at", "verified"),
+    ("verification_environment", "verified in"),
     ("superseded_by", "superseded by"),
 )
 
