@@ -8,7 +8,7 @@ compatibility: >
   worktree-isolated subagent dispatch or a supported headless coding CLI.
 metadata:
   author: Iwaschkin
-  version: "1.1.0"
+  version: "2.0.0"
   upstream: shadcn/improve
 ---
 

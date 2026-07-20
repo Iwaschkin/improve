@@ -7,7 +7,6 @@ effort: M
 risk: MED
 category: tech-debt
 base_commit: 1994caba0b2140d4d5aa765bb9d7d4412d6aaabb
-working_tree_clean: true
 created_at: 2026-06-10
 updated_at: 2026-06-10
 scope:
@@ -16,10 +15,13 @@ scope:
   - packages/shadcn/src/commands/search.ts
   - packages/shadcn/src/commands/view.ts
 dependencies: []
-execution_branch: null
+execution_locator: null
 execution_base: null
 reviewed_commit: null
 merged_commit: null
+verified_at: null
+superseded_by: null
+status_note: null
 sensitive: false
 issue: null
 ---
@@ -36,24 +38,14 @@ moved on — don't execute this; run `/improve` on your own repo instead.
 > expected result before moving to the next step. If repository-code execution
 > is not permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
-> improvise. When finished, update this plan's YAML frontmatter and run
-> the bundled `resources/generate_plan_index.py` helper.
+> improvise. When finished, report STATUS, HEAD SHA, FILES CHANGED,
+> VERIFICATION RESULTS, and NOTES. This plan's YAML frontmatter and the
+> generated plan index are reviewer-owned — do not modify either.
 >
 > **Drift check (run first)**: `git diff --stat 1994caba0b2140d4d5aa765bb9d7d4412d6aaabb..HEAD -- packages/shadcn/src/commands/search.ts packages/shadcn/src/commands/view.ts packages/shadcn/src/registry/config.ts packages/shadcn/src/registry/config.test.ts`
 > If any of these changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
-
-## Status
-
-- **Status**: TODO
-- **Priority**: P2
-- **Effort**: M
-- **Risk**: MED
-- **Depends on**: none
-- **Category**: tech-debt
-- **Planned at**: commit `1994caba0b2140d4d5aa765bb9d7d4412d6aaabb`, 2026-06-10
-- **Working tree clean**: true
 
 ## Why this matters
 
@@ -114,11 +106,11 @@ try {
 
 ## Commands you will need
 
-| Purpose | Command | Provenance | Execution class | Expected on success |
-| ------- | ------- | ---------- | --------------- | ------------------- |
-| Install | `pnpm install` | package manager / not run in sample | PACKAGE_INSTALL | exit 0 |
-| Tests | `pnpm shadcn:test` | package script / not run in sample | EXECUTES_REPOSITORY_CODE | all pass |
-| Lint+types | `pnpm check` | package script / not run in sample | EXECUTES_REPOSITORY_CODE | exit 0 |
+| Purpose | Command | Provenance | Expected on success |
+| ------- | ------- | ---------- | ------------------- |
+| Install | `pnpm install` | package manager / not run in sample | exit 0 |
+| Tests | `pnpm shadcn:test` | package script / not run in sample | all pass |
+| Lint+types | `pnpm check` | package script / not run in sample | exit 0 |
 
 Run from the repo root. This sample records command provenance but did not execute these commands in the `improve` repository.
 

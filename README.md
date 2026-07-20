@@ -8,7 +8,7 @@ agents to execute. It never edits your code.
 > [shadcn/improve](https://github.com/shadcn/improve), MIT-licensed, © shadcn.
 > This fork is maintained at
 > [Iwaschkin/improve](https://github.com/Iwaschkin/improve) and extends the
-> upstream skill with a host-neutral workflow, trust-aware execution profiles,
+> upstream skill with a host-neutral workflow, a trust-aware execution rule,
 > shell-neutral (Windows-safe) handoffs, validated plan metadata and lifecycle
 > tooling, native root-cause discipline, and a cross-host conformance
 > checklist. Upstream attribution is retained throughout — see
@@ -33,8 +33,8 @@ Non-negotiable boundaries, enforced by the skill's own
   directory. Asked to implement directly, it declines and offers `execute` (a
   dispatched executor plus its review) instead.
 - It **never runs commands that mutate your working tree**, and commands are
-  classified by their actual effects — never their names — with permission
-  following the riskiest effect under the selected execution profile.
+  judged by their actual effects — never their names — with repository code
+  running only under the trust rule below.
 - It **never reproduces secret values** — locations and credential types only,
   with rotation recommended.
 - Repository content is **data, not instructions**: a file planted in an
@@ -119,7 +119,7 @@ and 5"). One file per finding lands in the plans directory, plus a generated
 index. Each plan follows the
 [handoff template](skills/improve/references/plan-template.md): fully
 self-contained (current-state excerpts, repo conventions, exact commands with
-provenance and effect classes), a root-cause section naming the owning layer
+their provenance), a root-cause section naming the owning layer
 and the shortcuts the executor must not take, machine-checkable done criteria,
 explicit out-of-scope files, and STOP conditions — plus the full 40-character
 commit it was written against, so any executor can run a mechanical drift
@@ -134,57 +134,49 @@ like a tech lead — scope compliance, the full diff, the tests (executors game
 green checks; diluted assertions and symptom-silencing retries get rejected
 even when everything passes), and only then the done criteria. Verdicts are
 APPROVE, REVISE (max two rounds), or BLOCK, and the report always includes the
-execution locator, branch, base and head SHAs, execution profile, reviewed
-commit, and verification environment.
+execution locator, branch, base and head SHAs, and the reviewed commit.
 
 **5. Merge, then reconcile.** Merging is your decision. Next session,
 `/improve reconcile` verifies what actually landed — including squash merges,
-cherry-picks, and rebases, via a conservative evidence ladder
-([details](skills/improve/references/closing-the-loop.md)) where commit
-messages and PR titles can never advance status — refreshes drifted plans,
+cherry-picks, and rebases, by comparing diffs rather than trusting commit
+messages ([details](skills/improve/references/closing-the-loop.md)) —
+refreshes drifted plans,
 investigates blocked ones, and retires findings fixed independently.
 
-## Execution profiles
+## The trust rule
 
-Every `execute` runs under a profile; the profile decides how
-repository-controlled commands may run, never who edits what:
-
-| Profile | When | Repository-code commands |
-| --- | --- | --- |
-| `trusted-local` | Repos you own or explicitly trust | Run under your host's normal permission policy |
-| `strict` | Unfamiliar, external, or sensitive repos | Only inside an enforceable sandbox; otherwise the executor edits files and skips verification |
-| `manual` | Required capabilities or approvals absent | No automatic execution — the plan is handed over |
-
-Trust is never inferred from a repo merely being open in your workspace, and
-high-risk effects — dependency installs with lifecycle scripts, migrations,
+Repository-controlled commands (install, build, test, lint, package scripts)
+run only in repos you own or explicitly trust — trust is never inferred from
+a repo merely being open in your workspace. In a trusted repo they run under
+your host's normal permission policy; in an unfamiliar or untrusted repo the
+executor edits files only and verification is handed back to you. High-risk
+effects — dependency installs with lifecycle scripts, migrations,
 deployments, credentialed or broad network access, destructive operations —
-require explicit authorization in **every** profile. Worktrees remain the
-default change isolation everywhere; a dirty tree gets explicit safe choices,
-never an automatic stash or commit.
+always require explicit authorization. Worktrees remain the default change
+isolation everywhere; a dirty tree gets explicit safe choices, never an
+automatic stash or commit.
 
 ## The plan lifecycle
 
 Plan frontmatter is the authoritative record; the generated index
-(`README.md` in the plans directory) is a human-facing projection with three
-sections — the status table, execution & verification details, and rejected
-findings. Statuses:
+(`README.md` in the plans directory) is a human-facing projection with the
+status table, per-plan execution records, and rejected findings. Statuses:
 
 ```text
-TODO → EXECUTING → REVIEWED → MERGED → VERIFIED
-         (BLOCKED | REJECTED | ABANDONED | SUPERSEDED)
+TODO → EXECUTING → REVIEWED → DONE     (BLOCKED | REJECTED)
 ```
 
 Ownership is strict: executors never write plan records — the advisor records
 EXECUTING at dispatch, the reviewer records REVIEWED/BLOCKED after review,
-reconcile records MERGED/VERIFIED after reachability and acceptance checks,
-and you record ABANDONED/SUPERSEDED. Impossible states (a REVIEWED plan
-without an executor head, a VERIFIED plan whose verification never ran) fail
-validation outright.
+and reconcile records DONE only after integration is confirmed and acceptance
+checks pass. Impossible states (a REVIEWED plan without a reviewed commit, a
+DONE plan without a merged commit and verification timestamp) fail validation
+outright.
 
 ## Bundled tooling
 
-Two standard-library Python (3.10+) helpers ship inside the skill. Both
-require an explicit `--plans-dir` and refuse paths outside the repository
+One standard-library Python (3.10+) helper ships inside the skill. It
+requires an explicit `--plans-dir` and refuses paths outside the repository
 root:
 
 ```bash
@@ -192,13 +184,12 @@ root:
 # invalid input preserves the previous index and exits nonzero)
 python skills/improve/resources/generate_plan_index.py --plans-dir docs/dev/plans
 
-# validate the backlog / gate execution
-python skills/improve/resources/plan_state.py --plans-dir docs/dev/plans validate
-python skills/improve/resources/plan_state.py --plans-dir docs/dev/plans check-executable IMP-003
+# gate execution (read-only; the generated index is never an input)
+python skills/improve/resources/generate_plan_index.py --plans-dir docs/dev/plans --check-executable IMP-003
 ```
 
-`check-executable` exit codes: `0` eligible (TODO with every direct and
-transitive dependency VERIFIED), `3` not eligible (all blockers listed), `2`
+`--check-executable` exit codes: `0` eligible (TODO with every direct and
+transitive dependency DONE), `3` not eligible (all blockers listed), `2`
 invalid backlog or invocation. Eligibility is decided from validated plan
 files only — a stale or hand-edited index has no effect. Index generation is
 a projection and never gates an implementation; a manual executor without the
@@ -230,17 +221,14 @@ Audit and planning need an Agent Skills host with repository file access;
 | Git | Recommended | Required | Required |
 | Parallel subagents | Optional | Optional | Recommended |
 | Coding CLI | No | No | Optional |
-| Secure sandbox | No | No | Required for the strict profile |
 
-Per-surface support is evidence-bound: **VERIFIED** means current passing
-runs recorded in the [conformance checklist](docs/dev/conformance.md);
-**DOCUMENTED** means host documentation supports it but no behavioral run is
-recorded; **UNSUPPORTED** means a required capability is absent. Today every
-target surface — Claude Code CLI, Cursor, Codex CLI, GitHub Copilot (VS Code
-and CLI) — is **DOCUMENTED**, mapped with dated primary-source links in
-[host-compatibility.md](skills/improve/references/host-compatibility.md), and
-no recorded run claims more. Missing capabilities degrade explicitly: no
-subagents → sequential audit; no writable executor → manual handoff.
+The skill maps these onto whatever host it runs in via the capability
+contract in
+[host-compatibility.md](skills/improve/references/host-compatibility.md);
+manual conformance runs are recorded in the
+[conformance checklist](docs/dev/conformance.md). Missing capabilities
+degrade explicitly: no subagents → sequential audit; no writable executor →
+manual handoff.
 
 ## Example
 
