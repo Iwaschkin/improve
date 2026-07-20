@@ -23,3 +23,7 @@ jobs:
       - run: python scripts/check.py
       - run: python scripts/check_tests.py
       - run: python scripts/generate_plan_index_tests.py
+      # The backlog's frontmatter is authoritative and its index generated:
+      # regenerating must validate every plan and change nothing.
+      - run: python skills/improve/resources/generate_plan_index.py --plans-dir docs/dev/plans
+      - run: git diff --exit-code -- docs/dev/plans
