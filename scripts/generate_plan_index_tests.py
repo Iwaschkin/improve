@@ -11,9 +11,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = REPO_ROOT / "skills" / "improve" / "resources" / "generate_plan_index.py"
-PLAN_STATE = REPO_ROOT / "skills" / "improve" / "resources" / "plan_state.py"
 
 VALID_SHA = "4adde10c1d1d6308c485b87efbbefb6a6a241785"
+OTHER_SHA = "1234567890abcdef1234567890abcdef12345678"
 
 
 def plan_frontmatter(**overrides: object) -> str:
@@ -31,15 +31,10 @@ def plan_frontmatter(**overrides: object) -> str:
         "risk": "risk: LOW",
         "category": "category: bug",
         "base_commit": f"base_commit: {VALID_SHA}",
-        "working_tree_clean": "working_tree_clean: true",
         "created_at": "created_at: 2026-07-19",
         "updated_at": "updated_at: 2026-07-19",
         "scope": "scope:\n  - src/example.py",
         "dependencies": "dependencies: []",
-        "execution_branch": "execution_branch: null",
-        "execution_base": "execution_base: null",
-        "reviewed_commit": "reviewed_commit: null",
-        "merged_commit": "merged_commit: null",
         "sensitive": "sensitive: false",
         "issue": "issue: null",
     }
@@ -52,77 +47,44 @@ def plan_frontmatter(**overrides: object) -> str:
     return f"---\n{body}\n---\n\n## Plan\n\nBody text.\n"
 
 
-def numbered_plan(number: int, dependencies: str = "dependencies: []") -> str:
+def numbered_plan(number: int, dependencies: str = "dependencies: []", **overrides: object) -> str:
     return plan_frontmatter(
         id=f"id: IMP-{number:03d}",
         title=f"title: Test plan {number}",
         dependencies=dependencies,
+        **overrides,
     )
 
 
-OTHER_SHA = "1234567890abcdef1234567890abcdef12345678"
-
-
-def lifecycle_plan(status: str, **overrides: object) -> str:
-    """A plan in an execution-derived status with complete provenance."""
-    fields: dict[str, object] = {
-        "status": f"status: {status}",
-        "execution_branch": "execution_branch: advisor/001-test-plan",
-        "execution_base": f"execution_base: {VALID_SHA}",
-        "reviewed_commit": f"reviewed_commit: {OTHER_SHA}",
-        "issue": "issue: null\nexecution_profile: trusted-local\n"
-        "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
-        f"executor_head: {OTHER_SHA}\n"
-        "verification_environment: host-approval-policy",
-    }
-    fields.update(overrides)
-    return plan_frontmatter(**fields)
-
-
-def run_generator(plans_dir: Path) -> subprocess.CompletedProcess[str]:
-    # Helpers enforce repository-root containment: run from the fixture root
-    # with a relative directory, the way the documented workflow invokes them.
-    return subprocess.run(
-        [sys.executable, str(GENERATOR), "--plans-dir", plans_dir.name],
-        capture_output=True,
-        text=True,
-        cwd=plans_dir.parent,
-    )
-
-
-def run_plan_state(plans_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(PLAN_STATE), "--plans-dir", plans_dir.name, *args],
-        capture_output=True,
-        text=True,
-        cwd=plans_dir.parent,
-    )
-
-
-INTEGRATION_FIELDS = (
-    "target_branch: main\n"
-    "integration_method: squash\n"
-    "integration_evidence:\n"
-    "  - range-diff clean against candidate squash commit\n"
-    "verified_at: 2026-07-19T12:00:00Z"
+EXECUTION_RECORD = (
+    "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
+    f"execution_base: {VALID_SHA}"
 )
 
 
-def verified_plan(number: int, dependencies: str = "dependencies: []") -> str:
-    """A VERIFIED plan carrying complete execution and integration provenance."""
-    return plan_frontmatter(
-        id=f"id: IMP-{number:03d}",
-        title=f"title: Test plan {number}",
-        status="status: VERIFIED",
-        dependencies=dependencies,
-        execution_branch=f"execution_branch: advisor/{number:03d}-test",
-        execution_base=f"execution_base: {VALID_SHA}",
-        reviewed_commit=f"reviewed_commit: {OTHER_SHA}",
-        merged_commit=f"merged_commit: {OTHER_SHA}",
-        issue="issue: null\nexecution_profile: trusted-local\n"
+def done_plan(number: int, dependencies: str = "dependencies: []") -> str:
+    """A DONE plan carrying its complete execution record."""
+    return numbered_plan(
+        number,
+        dependencies,
+        issue="issue: null\n"
         f"execution_locator: docs/dev/plans/.worktrees/{number:03d}-test\n"
-        f"executor_head: {OTHER_SHA}\n"
-        "verification_environment: host-approval-policy\n" + INTEGRATION_FIELDS,
+        f"execution_base: {VALID_SHA}\n"
+        f"reviewed_commit: {OTHER_SHA}\n"
+        f"merged_commit: {OTHER_SHA}\n"
+        "verified_at: 2026-07-19T12:00:00Z",
+        status="status: DONE",
+    )
+
+
+def run_generator(plans_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    # The helper enforces repository-root containment: run from the fixture
+    # root with a relative directory, the way the documented workflow does.
+    return subprocess.run(
+        [sys.executable, str(GENERATOR), "--plans-dir", plans_dir.name, *args],
+        capture_output=True,
+        text=True,
+        cwd=plans_dir.parent,
     )
 
 
@@ -139,222 +101,6 @@ def check(condition: bool, label: str, failures: list[str]) -> None:
         failures.append(label)
 
 
-def test_selected_directory_containment() -> bool:
-    """Helpers act only on the explicit directory, inside the repo root."""
-    failures: list[str] = []
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        default_dir = root / "docs" / "dev" / "plans"
-        alternate = root / "docs" / "dev" / "advisor-plans"
-        default_dir.mkdir(parents=True)
-        alternate.mkdir(parents=True)
-        # Unrelated content in the default location; a real backlog in the
-        # alternate. Sentinel bytes prove the other directory is untouched.
-        unrelated = "# Roadmap\n\nUnrelated planning system.\n"
-        (default_dir / "README.md").write_text(unrelated, encoding="utf-8")
-        (default_dir / "notes.md").write_text("unrelated notes\n", encoding="utf-8")
-        (alternate / "001-test-plan.md").write_text(
-            plan_frontmatter(), encoding="utf-8"
-        )
-        before_default = snapshot(default_dir)
-
-        result = subprocess.run(
-            [sys.executable, str(GENERATOR), "--plans-dir", "docs/dev/advisor-plans"],
-            capture_output=True,
-            text=True,
-            cwd=root,
-        )
-        check(result.returncode == 0, "generator runs on the alternate directory", failures)
-        check(
-            "docs/dev/advisor-plans/README.md" in result.stdout,
-            "generator reports the repository-relative selected path",
-            failures,
-        )
-        check(
-            (alternate / "README.md").exists(),
-            "alternate index was written",
-            failures,
-        )
-        check(
-            snapshot(default_dir) == before_default,
-            "unrelated default directory is byte-for-byte untouched",
-            failures,
-        )
-
-        # Windows-style separators at the input boundary resolve identically.
-        result = subprocess.run(
-            [sys.executable, str(PLAN_STATE), "--plans-dir",
-             "docs\\dev\\advisor-plans", "validate"],
-            capture_output=True,
-            text=True,
-            cwd=root,
-        )
-        check(result.returncode == 0, "backslash input path validates", failures)
-
-        # Escapes and omissions fail before any read or write.
-        before_root = snapshot(root)
-        result = subprocess.run(
-            [sys.executable, str(GENERATOR), "--plans-dir", "../outside"],
-            capture_output=True,
-            text=True,
-            cwd=root,
-        )
-        check(result.returncode == 2, "traversal outside the root exits 2", failures)
-        check(
-            "outside the" in result.stderr and "repository root" in result.stderr,
-            "escape diagnostic names the containment rule",
-            failures,
-        )
-        result = subprocess.run(
-            [sys.executable, str(GENERATOR)],
-            capture_output=True,
-            text=True,
-            cwd=root,
-        )
-        check(result.returncode == 2, "omitted --plans-dir fails with usage", failures)
-        result = subprocess.run(
-            [sys.executable, str(PLAN_STATE), "--plans-dir", "does/not/exist",
-             "validate"],
-            capture_output=True,
-            text=True,
-            cwd=root,
-        )
-        check(result.returncode == 2, "nonexistent directory exits 2", failures)
-        check(
-            snapshot(root) == before_root or (alternate / "README.md").exists(),
-            "failed invocations write nothing",
-            failures,
-        )
-
-    for failure in failures:
-        print(f"  {failure}")
-    return not failures
-
-
-def test_plan_state_cli() -> bool:
-    """Eligibility gate: authoritative frontmatter, README-immune, read-only."""
-    failures: list[str] = []
-    with tempfile.TemporaryDirectory() as tmp:
-        plans_dir = Path(tmp) / "plans"
-        plans_dir.mkdir()
-        (plans_dir / "001-first.md").write_text(verified_plan(1), encoding="utf-8")
-        (plans_dir / "002-second.md").write_text(
-            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
-        )
-
-        result = run_plan_state(plans_dir, "validate")
-        check(result.returncode == 0, "validate valid dir exits 0", failures)
-
-        # Eligible with no README at all.
-        result = run_plan_state(plans_dir, "check-executable", "IMP-002")
-        check(result.returncode == 0, "eligible plan exits 0 without README", failures)
-
-        # A falsified README must have no effect in either direction.
-        (plans_dir / "README.md").write_text(
-            "| IMP-001 | ... | BLOCKED |\n| IMP-002 | ... | VERIFIED |\n",
-            encoding="utf-8",
-        )
-        result = run_plan_state(plans_dir, "check-executable", "IMP-002")
-        check(result.returncode == 0, "falsified README cannot block", failures)
-
-        before = snapshot(plans_dir)
-        run_plan_state(plans_dir, "validate")
-        run_plan_state(plans_dir, "check-executable", "IMP-002")
-        check(snapshot(plans_dir) == before, "read-only subcommands write nothing", failures)
-
-        result = run_plan_state(plans_dir, "check-executable", "IMP-999")
-        check(result.returncode == 2, "missing plan id exits 2", failures)
-
-    with tempfile.TemporaryDirectory() as tmp:
-        plans_dir = Path(tmp) / "plans"
-        plans_dir.mkdir()
-        (plans_dir / "001-first.md").write_text(numbered_plan(1), encoding="utf-8")
-        (plans_dir / "002-second.md").write_text(
-            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
-        )
-        (plans_dir / "003-third.md").write_text(
-            numbered_plan(3, "dependencies:\n  - IMP-002"), encoding="utf-8"
-        )
-        # README claims everything is VERIFIED; frontmatter says TODO.
-        (plans_dir / "README.md").write_text(
-            "| IMP-001 | VERIFIED |\n| IMP-002 | VERIFIED |\n", encoding="utf-8"
-        )
-        result = run_plan_state(plans_dir, "check-executable", "IMP-003")
-        check(result.returncode == 3, "transitive TODO blocks despite README", failures)
-        check(
-            "IMP-001" in result.stderr and "IMP-002" in result.stderr,
-            "all transitive blockers are listed",
-            failures,
-        )
-
-    with tempfile.TemporaryDirectory() as tmp:
-        plans_dir = Path(tmp) / "plans"
-        plans_dir.mkdir()
-        (plans_dir / "001-first.md").write_text(
-            plan_frontmatter(
-                status="status: EXECUTING",
-                issue="issue: null\nstatus_note: dispatched earlier this session",
-            ),
-            encoding="utf-8",
-        )
-        result = run_plan_state(plans_dir, "check-executable", "IMP-001")
-        check(result.returncode == 3, "non-TODO selected plan exits 3", failures)
-
-    with tempfile.TemporaryDirectory() as tmp:
-        plans_dir = Path(tmp) / "plans"
-        plans_dir.mkdir()
-        (plans_dir / "001-first.md").write_text(
-            plan_frontmatter(priority="priority: URGENT"), encoding="utf-8"
-        )
-        state_result = run_plan_state(plans_dir, "validate")
-        gen_result = run_generator(plans_dir)
-        check(state_result.returncode == 2, "invalid backlog exits 2", failures)
-        check(gen_result.returncode != 0, "generator rejects same fixture", failures)
-        state_first = next(
-            (line for line in state_result.stderr.splitlines() if line.startswith("ERROR")), ""
-        )
-        gen_first = next(
-            (line for line in gen_result.stderr.splitlines() if line.startswith("ERROR")), ""
-        )
-        check(
-            state_first == gen_first and state_first != "",
-            "generator and gate share the same primary diagnostic",
-            failures,
-        )
-
-    template = (
-        REPO_ROOT / "skills" / "improve" / "references" / "plan-template.md"
-    ).read_text(encoding="utf-8")
-    closing = (
-        REPO_ROOT / "skills" / "improve" / "references" / "closing-the-loop.md"
-    ).read_text(encoding="utf-8")
-    check(
-        "STATUS, HEAD SHA, FILES CHANGED," in template,
-        "template requires the five-field executor report",
-        failures,
-    )
-    check(
-        "update this plan's YAML frontmatter and run" not in template,
-        "template no longer tells executors to write lifecycle state",
-        failures,
-    )
-    check(
-        "reviewer-owned control-plane" in template
-        and "reviewer-owned control-plane" in closing,
-        "executor-facing prose declares plan records reviewer-owned",
-        failures,
-    )
-    check(
-        "check-executable" in closing,
-        "dispatch preconditions use the authoritative gate",
-        failures,
-    )
-
-    for failure in failures:
-        print(f"  {failure}")
-    return not failures
-
-
 def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
     """Return (files, expect_success, expected stderr substrings)."""
     if name == "valid-single-plan":
@@ -363,9 +109,7 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
         return (
             {
                 "001-first.md": numbered_plan(1),
-                "002-second.md": numbered_plan(
-                    2, "dependencies:\n  - IMP-001"
-                ),
+                "002-second.md": numbered_plan(2, "dependencies:\n  - IMP-001"),
                 "003-third.md": numbered_plan(
                     3, "dependencies:\n  - IMP-001\n  - IMP-002"
                 ),
@@ -415,6 +159,13 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
             False,
             ["priority", "'URGENT'"],
         )
+    if name == "invalid-status":
+        # Statuses removed by the lifecycle collapse must be rejected loudly.
+        return (
+            {"001-test-plan.md": plan_frontmatter(status="status: VERIFIED")},
+            False,
+            ["status", "'VERIFIED'"],
+        )
     if name == "short-sha":
         return (
             {"001-test-plan.md": plan_frontmatter(base_commit="base_commit: 4adde10")},
@@ -423,7 +174,11 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
         )
     if name == "invalid-lifecycle-sha":
         return (
-            {"001-test-plan.md": plan_frontmatter(reviewed_commit="reviewed_commit: not-a-sha")},
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    issue="issue: null\nreviewed_commit: not-a-sha"
+                )
+            },
             False,
             ["reviewed_commit", "40-character"],
         )
@@ -466,18 +221,14 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
         return (
             {
                 "001-first.md": numbered_plan(1),
-                "002-second.md": plan_frontmatter(
-                    id="id: IMP-001", title="title: Duplicate"
-                ),
+                "002-second.md": plan_frontmatter(id="id: IMP-001", title="title: Duplicate"),
             },
             False,
             ["duplicate plan id", "does not match filename prefix"],
         )
     if name == "missing-dependency":
         return (
-            {
-                "002-second.md": numbered_plan(2, "dependencies:\n  - IMP-001"),
-            },
+            {"002-second.md": numbered_plan(2, "dependencies:\n  - IMP-001")},
             False,
             ["'IMP-001' does not resolve"],
         )
@@ -506,91 +257,66 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
             ["'IMP-002' is not numbered earlier than 'IMP-001'"],
         )
     if name == "lifecycle-valid-reviewed":
-        return {"001-test-plan.md": lifecycle_plan("REVIEWED")}, True, []
-    if name == "lifecycle-valid-verified":
-        return ({"001-test-plan.md": verified_plan(1)}, True, [])
-    if name == "merged-without-evidence":
-        return (
-            {
-                "001-test-plan.md": lifecycle_plan(
-                    "MERGED",
-                    merged_commit=f"merged_commit: {OTHER_SHA}",
-                    issue="issue: null\nexecution_profile: trusted-local\n"
-                    "execution_locator: docs/dev/plans/.worktrees/001-test\n"
-                    f"executor_head: {OTHER_SHA}\n"
-                    "verification_environment: host-approval-policy\n"
-                    "target_branch: main\n"
-                    "integration_method: squash\n"
-                    "integration_evidence: []",
-                )
-            },
-            False,
-            ["integration_evidence", "MERGED requires nonempty"],
-        )
-    if name == "verified-without-timestamp":
-        return (
-            {
-                "001-test-plan.md": lifecycle_plan(
-                    "VERIFIED",
-                    merged_commit=f"merged_commit: {OTHER_SHA}",
-                    issue="issue: null\nexecution_profile: trusted-local\n"
-                    "execution_locator: docs/dev/plans/.worktrees/001-test\n"
-                    f"executor_head: {OTHER_SHA}\n"
-                    "verification_environment: host-approval-policy\n"
-                    "target_branch: main\n"
-                    "integration_method: merge\n"
-                    "integration_evidence:\n  - ancestry confirmed",
-                )
-            },
-            False,
-            ["verified_at", "VERIFIED requires"],
-        )
-    if name == "merged-reviewed-sha-only":
-        # merged_commit must never silently be absent for a rewritten
-        # integration: MERGED without a merged_commit fails even when the
-        # reviewed commit exists.
-        return (
-            {
-                "001-test-plan.md": lifecycle_plan(
-                    "MERGED",
-                    issue="issue: null\nexecution_profile: trusted-local\n"
-                    "execution_locator: docs/dev/plans/.worktrees/001-test\n"
-                    f"executor_head: {OTHER_SHA}\n"
-                    "verification_environment: host-approval-policy\n"
-                    "target_branch: main\n"
-                    "integration_method: cherry-pick\n"
-                    "integration_evidence:\n  - git cherry mapping",
-                )
-            },
-            False,
-            ["merged_commit", "actual target-branch"],
-        )
-    if name == "invalid-integration-method":
         return (
             {
                 "001-test-plan.md": plan_frontmatter(
-                    issue="issue: null\nintegration_method: vibes"
+                    status="status: REVIEWED",
+                    issue="issue: null\n" + EXECUTION_RECORD + f"\nreviewed_commit: {OTHER_SHA}",
                 )
             },
-            False,
-            ["integration_method", "'vibes'"],
+            True,
+            [],
         )
-    if name == "superseded-missing-target":
+    if name == "lifecycle-valid-done":
+        return {"001-test-plan.md": done_plan(1)}, True, []
+    if name == "lifecycle-executing-missing-record":
+        return (
+            {"001-test-plan.md": plan_frontmatter(status="status: EXECUTING")},
+            False,
+            ["execution_locator", "execution_base"],
+        )
+    if name == "lifecycle-reviewed-missing-commit":
         return (
             {
                 "001-test-plan.md": plan_frontmatter(
-                    status="status: SUPERSEDED",
-                    issue="issue: null\nstatus_note: replaced by a redesign",
+                    status="status: REVIEWED", issue="issue: null\n" + EXECUTION_RECORD
                 )
             },
             False,
-            ["superseded_by", "SUPERSEDED requires"],
+            ["reviewed_commit", "REVIEWED requires"],
+        )
+    if name == "lifecycle-done-missing-merge":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    status="status: DONE",
+                    issue="issue: null\n" + EXECUTION_RECORD + f"\nreviewed_commit: {OTHER_SHA}",
+                )
+            },
+            False,
+            ["merged_commit", "verified_at"],
+        )
+    if name == "lifecycle-blocked-without-note":
+        return (
+            {"001-test-plan.md": plan_frontmatter(status="status: BLOCKED")},
+            False,
+            ["status_note", "BLOCKED requires"],
+        )
+    if name == "invalid-verified-at":
+        return (
+            {
+                "001-test-plan.md": plan_frontmatter(
+                    issue="issue: null\nverified_at: yesterday"
+                )
+            },
+            False,
+            ["verified_at", "'yesterday'"],
         )
     if name == "superseded-self":
         return (
             {
                 "001-test-plan.md": plan_frontmatter(
-                    status="status: SUPERSEDED",
+                    status="status: REJECTED",
                     issue="issue: null\nstatus_note: replaced\nsuperseded_by: IMP-001",
                 )
             },
@@ -601,79 +327,12 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
         return (
             {
                 "001-test-plan.md": plan_frontmatter(
-                    status="status: SUPERSEDED",
+                    status="status: REJECTED",
                     issue="issue: null\nstatus_note: replaced\nsuperseded_by: IMP-009",
                 )
             },
             False,
             ["superseded_by 'IMP-009' does not resolve"],
-        )
-    if name == "lifecycle-blocked-without-note":
-        return (
-            {"001-test-plan.md": plan_frontmatter(status="status: BLOCKED")},
-            False,
-            ["status_note", "BLOCKED requires"],
-        )
-    if name == "lifecycle-reviewed-missing-head":
-        return (
-            {
-                "001-test-plan.md": lifecycle_plan(
-                    "REVIEWED",
-                    issue="issue: null\nexecution_profile: trusted-local\n"
-                    "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
-                    "verification_environment: host-approval-policy",
-                )
-            },
-            False,
-            ["executor_head", "REVIEWED requires"],
-        )
-    if name == "lifecycle-verified-not-run":
-        return (
-            {
-                "001-test-plan.md": lifecycle_plan(
-                    "VERIFIED",
-                    merged_commit=f"merged_commit: {OTHER_SHA}",
-                    issue="issue: null\nexecution_profile: trusted-local\n"
-                    "execution_locator: docs/dev/plans/.worktrees/001-test-plan\n"
-                    f"executor_head: {OTHER_SHA}\n"
-                    "verification_environment: not-run",
-                )
-            },
-            False,
-            ["verification_environment that actually ran"],
-        )
-    if name == "lifecycle-merged-missing-commit":
-        return (
-            {"001-test-plan.md": lifecycle_plan("MERGED")},
-            False,
-            ["merged_commit", "MERGED requires"],
-        )
-    if name == "lifecycle-executing-missing-provenance":
-        return (
-            {"001-test-plan.md": plan_frontmatter(status="status: EXECUTING")},
-            False,
-            ["execution_locator", "execution_profile"],
-        )
-    if name == "lifecycle-executing-note-exception":
-        return (
-            {
-                "001-test-plan.md": plan_frontmatter(
-                    status="status: EXECUTING",
-                    issue="issue: null\nstatus_note: legacy manual execution, provenance unknown",
-                )
-            },
-            True,
-            [],
-        )
-    if name == "invalid-execution-profile":
-        return (
-            {
-                "001-test-plan.md": plan_frontmatter(
-                    issue="issue: null\nexecution_profile: yolo"
-                )
-            },
-            False,
-            ["execution_profile", "'yolo'"],
         )
     if name == "sensitive-marker":
         return (
@@ -683,11 +342,7 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
         )
     if name == "pipe-escaping":
         return (
-            {
-                "001-test-plan.md": plan_frontmatter(
-                    title="title: Fix a | b handling"
-                )
-            },
+            {"001-test-plan.md": plan_frontmatter(title="title: Fix a | b handling")},
             True,
             [],
         )
@@ -722,10 +377,7 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
         )
     if name == "rejections-malformed-json":
         return (
-            {
-                "001-test-plan.md": plan_frontmatter(),
-                "rejections.json": "[not json",
-            },
+            {"001-test-plan.md": plan_frontmatter(), "rejections.json": "[not json"},
             False,
             ["rejections.json", "not valid JSON"],
         )
@@ -763,17 +415,11 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool, list[str]]:
 EXTRA_INDEX_ASSERTS = {
     "valid-single-plan": ["None recorded."],
     "lifecycle-valid-reviewed": [
-        "## Execution & Verification Details",
+        "## Execution Records",
         "docs/dev/plans/.worktrees/001-test-plan",
-        "trusted-local",
         OTHER_SHA,
     ],
-    "lifecycle-valid-verified": [
-        "VERIFIED",
-        "host-approval-policy",
-        "| main | squash |",
-        "2026-07-19T12:00:00Z",
-    ],
+    "lifecycle-valid-done": ["DONE", "2026-07-19T12:00:00Z"],
     "sensitive-marker": ["(sensitive)"],
     "pipe-escaping": ["Fix a \\| b handling"],
     "issue-rendered": ["https://github.com/example/repo/issues/7"],
@@ -795,6 +441,7 @@ CASES = [
     "duplicate-key",
     "missing-required-field",
     "invalid-enum",
+    "invalid-status",
     "short-sha",
     "invalid-lifecycle-sha",
     "quoted-boolean",
@@ -808,21 +455,14 @@ CASES = [
     "dependency-cycle",
     "out-of-order-dependency",
     "lifecycle-valid-reviewed",
-    "lifecycle-valid-verified",
-    "merged-without-evidence",
-    "verified-without-timestamp",
-    "merged-reviewed-sha-only",
-    "invalid-integration-method",
-    "superseded-missing-target",
+    "lifecycle-valid-done",
+    "lifecycle-executing-missing-record",
+    "lifecycle-reviewed-missing-commit",
+    "lifecycle-done-missing-merge",
+    "lifecycle-blocked-without-note",
+    "invalid-verified-at",
     "superseded-self",
     "superseded-unresolved",
-    "lifecycle-blocked-without-note",
-    "lifecycle-reviewed-missing-head",
-    "lifecycle-verified-not-run",
-    "lifecycle-merged-missing-commit",
-    "lifecycle-executing-missing-provenance",
-    "lifecycle-executing-note-exception",
-    "invalid-execution-profile",
     "sensitive-marker",
     "pipe-escaping",
     "issue-rendered",
@@ -844,15 +484,13 @@ def run_case(name: str) -> bool:
             (plans_dir / rel).write_text(content, encoding="utf-8")
         result = run_generator(plans_dir)
         ok = (result.returncode == 0) == expect_success
+        index = (plans_dir / "README.md").read_text(encoding="utf-8")
         if expect_success:
-            index = (plans_dir / "README.md").read_text(encoding="utf-8")
             if index == sentinel:
                 ok = False
-                print(f"  index was not regenerated on success")
+                print("  index was not regenerated on success")
             for rel in files:
-                if rel == "rejections.json":
-                    continue
-                if rel.replace(".md", "") not in index:
+                if rel != "rejections.json" and rel.replace(".md", "") not in index:
                     ok = False
                     print(f"  index missing entry for {rel}")
             for expected in EXTRA_INDEX_ASSERTS.get(name, []):
@@ -860,7 +498,6 @@ def run_case(name: str) -> bool:
                     ok = False
                     print(f"  index missing expected content {expected!r}")
         else:
-            index = (plans_dir / "README.md").read_text(encoding="utf-8")
             if index != sentinel:
                 ok = False
                 print("  previous index was not preserved on failure")
@@ -899,6 +536,179 @@ def test_deterministic_output() -> bool:
     return True
 
 
+def test_check_executable() -> bool:
+    """Eligibility gate: authoritative frontmatter, README-immune, read-only."""
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(done_plan(1), encoding="utf-8")
+        (plans_dir / "002-second.md").write_text(
+            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
+        )
+
+        # Eligible with no README at all.
+        result = run_generator(plans_dir, "--check-executable", "IMP-002")
+        check(result.returncode == 0, "eligible plan exits 0 without README", failures)
+
+        # A falsified README must have no effect in either direction.
+        (plans_dir / "README.md").write_text(
+            "| IMP-001 | ... | BLOCKED |\n| IMP-002 | ... | DONE |\n", encoding="utf-8"
+        )
+        result = run_generator(plans_dir, "--check-executable", "IMP-002")
+        check(result.returncode == 0, "falsified README cannot block", failures)
+
+        before = snapshot(plans_dir)
+        run_generator(plans_dir, "--check-executable", "IMP-002")
+        check(snapshot(plans_dir) == before, "gate mode writes nothing", failures)
+
+        result = run_generator(plans_dir, "--check-executable", "IMP-999")
+        check(result.returncode == 2, "missing plan id exits 2", failures)
+
+        result = run_generator(plans_dir, "--check-executable", "IMP-001")
+        check(result.returncode == 3, "non-TODO selected plan exits 3", failures)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(numbered_plan(1), encoding="utf-8")
+        (plans_dir / "002-second.md").write_text(
+            numbered_plan(2, "dependencies:\n  - IMP-001"), encoding="utf-8"
+        )
+        (plans_dir / "003-third.md").write_text(
+            numbered_plan(3, "dependencies:\n  - IMP-002"), encoding="utf-8"
+        )
+        # README claims everything is DONE; frontmatter says TODO.
+        (plans_dir / "README.md").write_text(
+            "| IMP-001 | DONE |\n| IMP-002 | DONE |\n", encoding="utf-8"
+        )
+        result = run_generator(plans_dir, "--check-executable", "IMP-003")
+        check(result.returncode == 3, "transitive TODO blocks despite README", failures)
+        check(
+            "IMP-001" in result.stderr and "IMP-002" in result.stderr,
+            "all transitive blockers are listed",
+            failures,
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        plans_dir = Path(tmp) / "plans"
+        plans_dir.mkdir()
+        (plans_dir / "001-first.md").write_text(
+            plan_frontmatter(priority="priority: URGENT"), encoding="utf-8"
+        )
+        result = run_generator(plans_dir, "--check-executable", "IMP-001")
+        check(result.returncode == 2, "invalid backlog exits 2 in gate mode", failures)
+
+    for failure in failures:
+        print(f"  {failure}")
+    return not failures
+
+
+def test_selected_directory_containment() -> bool:
+    """The helper acts only on the explicit directory, inside the repo root."""
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        default_dir = root / "docs" / "dev" / "plans"
+        alternate = root / "docs" / "dev" / "advisor-plans"
+        default_dir.mkdir(parents=True)
+        alternate.mkdir(parents=True)
+        # Unrelated content in the default location; a real backlog in the
+        # alternate. Sentinel bytes prove the other directory is untouched.
+        (default_dir / "README.md").write_text(
+            "# Roadmap\n\nUnrelated planning system.\n", encoding="utf-8"
+        )
+        (default_dir / "notes.md").write_text("unrelated notes\n", encoding="utf-8")
+        (alternate / "001-test-plan.md").write_text(plan_frontmatter(), encoding="utf-8")
+        before_default = snapshot(default_dir)
+
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "docs/dev/advisor-plans"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 0, "generator runs on the alternate directory", failures)
+        check(
+            "docs/dev/advisor-plans/README.md" in result.stdout,
+            "generator reports the repository-relative selected path",
+            failures,
+        )
+        check((alternate / "README.md").exists(), "alternate index was written", failures)
+        check(
+            snapshot(default_dir) == before_default,
+            "unrelated default directory is byte-for-byte untouched",
+            failures,
+        )
+
+        # Windows-style separators at the input boundary resolve identically.
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "docs\\dev\\advisor-plans"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 0, "backslash input path resolves", failures)
+
+        # Escapes and omissions fail before any read or write.
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "../outside"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 2, "traversal outside the root exits 2", failures)
+        check(
+            "outside the" in result.stderr and "repository root" in result.stderr,
+            "escape diagnostic names the containment rule",
+            failures,
+        )
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR)], capture_output=True, text=True, cwd=root
+        )
+        check(result.returncode == 2, "omitted --plans-dir fails with usage", failures)
+        result = subprocess.run(
+            [sys.executable, str(GENERATOR), "--plans-dir", "does/not/exist"],
+            capture_output=True,
+            text=True,
+            cwd=root,
+        )
+        check(result.returncode == 2, "nonexistent directory exits 2", failures)
+
+    for failure in failures:
+        print(f"  {failure}")
+    return not failures
+
+
+def test_docs_contract() -> bool:
+    """Executor-facing prose keeps the reviewer-ownership and gate contract."""
+    failures: list[str] = []
+    template = (
+        REPO_ROOT / "skills" / "improve" / "references" / "plan-template.md"
+    ).read_text(encoding="utf-8")
+    closing = (
+        REPO_ROOT / "skills" / "improve" / "references" / "closing-the-loop.md"
+    ).read_text(encoding="utf-8")
+    check(
+        "STATUS, HEAD SHA, FILES CHANGED," in template,
+        "template requires the five-field executor report",
+        failures,
+    )
+    check(
+        "reviewer-owned" in template and "reviewer-owned" in closing,
+        "executor-facing prose declares plan records reviewer-owned",
+        failures,
+    )
+    check(
+        "--check-executable" in closing,
+        "dispatch preconditions use the authoritative gate",
+        failures,
+    )
+    for failure in failures:
+        print(f"  {failure}")
+    return not failures
+
+
 def main() -> int:
     failures = 0
     for name in CASES:
@@ -907,21 +717,17 @@ def main() -> int:
         else:
             print(f"FAIL {name}")
             failures += 1
-    if test_deterministic_output():
-        print("PASS deterministic-output")
-    else:
-        print("FAIL deterministic-output")
-        failures += 1
-    if test_plan_state_cli():
-        print("PASS plan-state-cli")
-    else:
-        print("FAIL plan-state-cli")
-        failures += 1
-    if test_selected_directory_containment():
-        print("PASS selected-directory-containment")
-    else:
-        print("FAIL selected-directory-containment")
-        failures += 1
+    for label, test in (
+        ("deterministic-output", test_deterministic_output),
+        ("check-executable", test_check_executable),
+        ("selected-directory-containment", test_selected_directory_containment),
+        ("docs-contract", test_docs_contract),
+    ):
+        if test():
+            print(f"PASS {label}")
+        else:
+            print(f"FAIL {label}")
+            failures += 1
     if failures:
         print(f"{failures} generator fixture test(s) failed")
         return 1
