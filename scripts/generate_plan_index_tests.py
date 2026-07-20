@@ -872,6 +872,16 @@ def test_docs_contract() -> bool:
         "playbook defines the canonical finding-ID prefixes",
         failures,
     )
+    check(
+        "decision re-evaluation" in playbook and "decision re-evaluation" in skill,
+        "assumption-drift narrowing of ADR immunity is in both homes",
+        failures,
+    )
+    check(
+        "Coverage receipt" in playbook and "coverage receipt" in skill,
+        "worker coverage receipt is defined and required in the worker prompt",
+        failures,
+    )
     for failure in failures:
         print(f"  {failure}")
     return not failures
