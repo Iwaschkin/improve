@@ -258,9 +258,9 @@ python scripts/generate_plan_index_tests.py  # generator + plan-state fixtures
 CI runs all three on Ubuntu and Windows
 ([check.yml](.github/workflows/check.yml)). A size budget on `SKILL.md`
 (32 KiB / 400 lines, checker-enforced) keeps the always-loaded prompt lean —
-detail belongs in phase-loaded references. This repo's own improvement
-backlog lives in [docs/dev/plans/](docs/dev/plans/README.md), planned and
-maintained with this skill.
+detail belongs in phase-loaded references. This repo plans its own
+improvement work in [docs/dev/plans/](docs/dev/plans/README.md) using the
+skill itself; merged plans are removed — the commit history is the record.
 
 ## Provenance & license
 
@@ -272,6 +272,5 @@ maintained with this skill.
   [Iwaschkin/improve](https://github.com/Iwaschkin/improve). Upstream is also
   recorded in the package metadata (`.claude-plugin/plugin.json`
   `upstreamRepository`, `SKILL.md` `metadata.upstream`).
-- Fork changes are documented in this repo's commit history and
-  [plan backlog](docs/dev/plans/README.md); the plans it writes are plain
-  Markdown, so any agent (or human) can pick them up.
+- Fork changes are documented in this repo's commit history; the plans the
+  skill writes are plain Markdown, so any agent (or human) can pick them up.
