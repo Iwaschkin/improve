@@ -103,6 +103,15 @@ def fixture_files(name: str) -> tuple[dict[str, str], bool]:
         plugin["version"] = "9.9.9"
         files[".claude-plugin/plugin.json"] = json.dumps(plugin, indent=2)
         return files, False
+    if name == "dotted-repo-target":
+        plugin = dict(BASE_PLUGIN)
+        plugin["repository"] = "https://github.com/Iwaschkin/improve.js"
+        plugin["homepage"] = "https://github.com/Iwaschkin/improve.js"
+        files[".claude-plugin/plugin.json"] = json.dumps(plugin, indent=2)
+        files["README.md"] = BASE_README.replace(
+            "npx skills add Iwaschkin/improve", "npx skills add Iwaschkin/improve.js"
+        )
+        return files, True
     if name == "missing-variant":
         files["README.md"] = BASE_README.replace(
             "/improve execute <plan>         dispatch executor\n", ""
@@ -237,6 +246,7 @@ def main() -> int:
         "malformed-frontmatter",
         "broken-reference",
         "version-mismatch",
+        "dotted-repo-target",
         "missing-variant",
         "empty-skill",
         "invalid-plugin-json",

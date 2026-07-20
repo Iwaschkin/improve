@@ -12,6 +12,8 @@ Run each command from the repository root; all must succeed before a commit:
 - `python scripts/check.py` — structural checks; expect exit 0 and
   `all checks passed`.
 - `python scripts/check_tests.py` — checker fixture suite; expect all PASS.
+- `python scripts/generate_plan_index_tests.py` — generator and plan-state
+  fixture suite; expect all PASS.
 - `git diff --check` — no whitespace errors.
 
 Python 3.10+ locally; CI pins 3.12 (see `.github/workflows/check.yml`).
@@ -41,8 +43,10 @@ Python 3.10+ locally; CI pins 3.12 (see `.github/workflows/check.yml`).
 
 Improvement work is planned in `docs/dev/plans/` — one self-contained plan per
 file, YAML frontmatter as the authoritative lifecycle record. Once a plan's
-work is merged and verified, delete the plan file and regenerate the index —
-the commit history is the record; the backlog holds only open work.
+work is merged and verified, move the plan file into `docs/dev/plans/archive/`
+and regenerate the index — the active backlog holds only open work, while the
+archive keeps closed plans validated and their IDs resolvable for the
+dependency graph.
 `docs/dev/plans/README.md` is **generated**; never hand-edit it. Regenerate
 with:
 

@@ -10,6 +10,13 @@ preserves the previous index. With `--check-executable IMP-NNN` the helper
 instead decides, read-only, whether that plan may be dispatched: the plan
 files are authoritative; the generated README is never an input.
 
+The selected directory is resolved against the repository root — the nearest
+ancestor of the working directory containing `.git` — and the helper refuses
+to run outside a repository or on paths escaping it. Closed plans (status
+DONE or REJECTED) may live in an `archive/` subdirectory: they are validated
+like any plan, still resolve dependency and supersede references, and render
+in a compact archived section instead of the main table.
+
 Exit codes: 0 success/eligible, 1 invalid plan data (generate), 2 invalid
 invocation or plan data (gate), 3 valid backlog but the plan is not eligible.
 """
@@ -36,6 +43,7 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 STATUS_ENUM = {"TODO", "EXECUTING", "REVIEWED", "DONE", "BLOCKED", "REJECTED"}
+ARCHIVABLE_STATUSES = {"DONE", "REJECTED"}
 PRIORITY_ENUM = {"P1", "P2", "P3"}
 EFFORT_ENUM = {"S", "M", "L"}
 RISK_ENUM = {"LOW", "MED", "HIGH"}
@@ -205,7 +213,7 @@ def validate_plan(
     if missing:
         return
 
-    filename_match = PLAN_FILENAME_RE.fullmatch(filename)
+    filename_match = PLAN_FILENAME_RE.fullmatch(filename.rsplit("/", 1)[-1])
     if not filename_match:
         errors.append(
             Diagnostic(filename, "filename must match 'NNN-lowercase-hyphen-slug.md'")
@@ -527,31 +535,62 @@ def validate_graph(rows: list[dict[str, PlanValue]], errors: list[Diagnostic]) -
 def collect_plans(plans_dir: Path) -> tuple[list[dict[str, PlanValue]], list[Diagnostic]]:
     rows: list[dict[str, PlanValue]] = []
     errors: list[Diagnostic] = []
+
+    def read_plan(path: Path, display: str, archived: bool) -> None:
+        text = path.read_text(encoding="utf-8")
+        frontmatter = split_frontmatter(text, display, errors)
+        if frontmatter is None:
+            return
+        data = parse_frontmatter(frontmatter, display, errors)
+        validate_plan(data, display, errors)
+        if archived and data.get("status") in STATUS_ENUM - ARCHIVABLE_STATUSES:
+            errors.append(
+                Diagnostic(
+                    display,
+                    "archived plans must be closed — status DONE or REJECTED",
+                    field="status",
+                )
+            )
+        data["file"] = display
+        data["archived"] = archived
+        rows.append(data)
+
     for path in sorted(plans_dir.glob("*.md")):
         if path.name == "README.md":
             continue
-        text = path.read_text(encoding="utf-8")
-        frontmatter = split_frontmatter(text, path.name, errors)
-        if frontmatter is None:
-            continue
-        data = parse_frontmatter(frontmatter, path.name, errors)
-        validate_plan(data, path.name, errors)
-        data["file"] = path.name
-        rows.append(data)
+        read_plan(path, path.name, archived=False)
+    archive_dir = plans_dir / "archive"
+    if archive_dir.is_dir():
+        for path in sorted(archive_dir.glob("*.md")):
+            if path.name == "README.md":
+                continue
+            read_plan(path, f"archive/{path.name}", archived=True)
     validate_graph(rows, errors)
     return rows, errors
 
 
-def resolve_plans_dir(supplied: str) -> tuple[Path | None, str | None]:
+def find_repository_root(start: Path) -> Path | None:
+    """Nearest ancestor (including start) containing `.git` — dir or file.
+
+    A `.git` file marks a linked git worktree; both forms anchor the root.
+    """
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+def resolve_plans_dir(supplied: str, root: Path) -> tuple[Path | None, str | None]:
     """Resolve the selected plans directory inside the repository root.
 
     Selection policy (default vs `advisor-plans`, ambiguity handling) belongs
     to the skill workflow; the helper only validates an explicitly supplied
-    directory and refuses to operate outside the current repository root.
-    Windows-style separators are normalized at this input boundary so the
-    same repository-relative argument works identically on every platform.
+    directory — relative arguments resolve against the repository root, so
+    the documented invocation works from any subdirectory — and refuses to
+    operate outside that root. Windows-style separators are normalized at
+    this input boundary so the same repository-relative argument works
+    identically on every platform.
     """
-    root = Path.cwd().resolve()
     raw = Path(supplied.replace("\\", "/"))
     resolved = (raw if raw.is_absolute() else root / raw).resolve()
     if not resolved.is_relative_to(root):
@@ -564,9 +603,8 @@ def resolve_plans_dir(supplied: str) -> tuple[Path | None, str | None]:
     return resolved, None
 
 
-def plans_dir_display(plans_dir: Path) -> str:
+def plans_dir_display(plans_dir: Path, root: Path) -> str:
     """Repository-relative forward-slash form for reports and logs."""
-    root = Path.cwd().resolve()
     try:
         return plans_dir.resolve().relative_to(root).as_posix()
     except ValueError:
@@ -623,6 +661,17 @@ def cell(value: PlanValue) -> str:
     return escape_cell(str(value))
 
 
+def linked_title(row: dict[str, PlanValue]) -> str:
+    """Title cell: sensitive marker appended, linked to the plan file."""
+    title = cell(row.get("title"))
+    if row.get("sensitive") is True:
+        title = f"{title} (sensitive)"
+    filename = cell(row.get("file"))
+    if filename != "-":
+        title = f"[{title}]({filename})"
+    return title
+
+
 EXECUTION_RECORD_FIELDS = (
     ("execution_locator", "locator"),
     ("execution_base", "base"),
@@ -634,6 +683,8 @@ EXECUTION_RECORD_FIELDS = (
 
 
 def render_index(rows: list[dict[str, PlanValue]], rejections: list[dict[str, Any]]) -> str:
+    active = [row for row in rows if row.get("archived") is not True]
+    archived = [row for row in rows if row.get("archived") is True]
     lines = [
         "# Implementation Plans",
         "",
@@ -644,13 +695,8 @@ def render_index(rows: list[dict[str, PlanValue]], rejections: list[dict[str, An
         "| Plan | Title | Priority | Effort | Depends on | Status | Status note | Issue |",
         "| ---- | ----- | -------- | ------ | ---------- | ------ | ----------- | ----- |",
     ]
-    for row in rows:
-        title = cell(row.get("title"))
-        filename = cell(row.get("file"))
-        if row.get("sensitive") is True:
-            title = f"{title} (sensitive)"
-        if filename != "-":
-            title = f"[{title}]({filename})"
+    for row in active:
+        title = linked_title(row)
         lines.append(
             "| "
             + " | ".join(
@@ -667,7 +713,7 @@ def render_index(rows: list[dict[str, PlanValue]], rejections: list[dict[str, An
             )
             + " |"
         )
-    if not rows:
+    if not active:
         lines.append("| - | No plans yet | - | - | - | - | - | - |")
     lines.extend(
         ["", "Status values: TODO | EXECUTING | REVIEWED | DONE | BLOCKED | REJECTED"]
@@ -675,7 +721,7 @@ def render_index(rows: list[dict[str, PlanValue]], rejections: list[dict[str, An
 
     records = [
         (row, parts)
-        for row in rows
+        for row in active
         if (
             parts := [
                 f"{label}: `{cell(row.get(field))}`"
@@ -688,6 +734,14 @@ def render_index(rows: list[dict[str, PlanValue]], rejections: list[dict[str, An
         lines.extend(["", "## Execution Records", ""])
         for row, parts in records:
             lines.append(f"- **{cell(row.get('id'))}** — " + ", ".join(parts))
+
+    if archived:
+        lines.extend(["", "## Archived Plans", ""])
+        for row in archived:
+            lines.append(
+                f"- **{cell(row.get('id'))}** — {linked_title(row)} "
+                f"({cell(row.get('status'))})"
+            )
 
     lines.extend(["", "## Findings Considered and Rejected", ""])
     if rejections:
@@ -738,7 +792,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    plans_dir, problem = resolve_plans_dir(args.plans_dir)
+    root = find_repository_root(Path.cwd().resolve())
+    if root is None:
+        print(
+            "ERROR working directory is not inside a git repository; the "
+            "selected plans directory is repository-relative",
+            file=sys.stderr,
+        )
+        return 2
+    plans_dir, problem = resolve_plans_dir(args.plans_dir, root)
     if plans_dir is None:
         print(f"ERROR {problem}", file=sys.stderr)
         return 2
@@ -766,7 +828,7 @@ def main() -> int:
 
     index_path = plans_dir / "README.md"
     write_index_atomically(index_path, render_index(rows, rejections))
-    print(f"wrote {plans_dir_display(plans_dir)}/README.md")
+    print(f"wrote {plans_dir_display(plans_dir, root)}/README.md")
     return 0
 
 

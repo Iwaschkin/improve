@@ -23,7 +23,7 @@ A git worktree isolates *changes* for review, not the host — commands inside i
 ### Preconditions (check all before dispatching)
 
 - The repo is a git repository (change isolation requires it). If not: stop and say so.
-- Eligibility comes from validated plan files, never from the generated README. Run the bundled gate with the literal plan ID: `python <path-to-skill>/resources/generate_plan_index.py --plans-dir <selected-plans-dir> --check-executable IMP-NNN`. Exit 0 means eligible (TODO, every direct and transitive dependency DONE); exit 3 lists the blocking dependencies — stop and report them; exit 2 means the backlog itself is invalid — fix the reported plan files first. After the gate passes, set the plan to EXECUTING with `execution_locator` and `execution_base`, and regenerate the index.
+- Eligibility comes from validated plan files, never from the generated README. Run the bundled gate with the literal plan ID: `python <path-to-skill>/resources/generate_plan_index.py --plans-dir <selected-plans-dir> --check-executable IMP-NNN`. Exit 0 means eligible (TODO, every direct and transitive dependency DONE); exit 3 lists the blockers — stop and report them; exit 2 means the invocation or backlog is invalid (unknown plan ID, or plan files that fail validation) — fix what it reports first.
 - Run the plan's drift check yourself. If in-scope files changed since the plan's `base_commit`, reconcile the plan first — don't hand a stale plan to an executor.
 - Execution runs from a committed baseline. If `git status --porcelain=v1` prints anything, present the safe choices and let the user pick: execute committed `HEAD` (stating plainly that uncommitted changes are excluded), commit the relevant baseline first, or fall back to manual handoff. Never stash, discard, or commit the user's changes yourself.
 - Record the execution base as a **literal value**: run `git rev-parse HEAD`, confirm the output is one full 40-character SHA, and copy that literal into the executor prompt, the plan frontmatter, and every later `git diff <base>..HEAD` comparison. Shell state does not survive between an agent's tool calls — never rely on `$NAME` or command substitution to carry it, on any platform.
@@ -32,7 +32,7 @@ A git worktree isolates *changes* for review, not the host — commands inside i
 
 Prepare the worktree at `<selected-plans-dir>/.worktrees/<plan-id>-<slug>/` (the plan filename without `.md`). Ensure `<selected-plans-dir>/.gitignore` contains a `.worktrees/` entry — preserve existing lines, no duplicates. If the host's isolation API can't use that path, create the worktree there yourself with `git worktree add` and launch the executor rooted in it. If a workspace-local worktree is impossible, stop and hand the plan over for manual execution.
 
-Dispatch exactly one executor in that worktree:
+With every precondition met and the worktree prepared, record the transition before launching: set the plan to EXECUTING with `execution_locator` (the worktree path, or the remote locator) and `execution_base` (the literal base SHA), regenerate the index — then dispatch exactly one executor in that worktree:
 
 - Preferred: one host-native writable executor agent isolated to the prepared worktree, inheriting the host's default model (or the model the user named).
 - Fallback: the *same host's* headless coding CLI run non-interactively from the worktree — write the full prompt to a temp file, capture stdout as the executor report. For REVISE rounds, re-invoke in the same worktree with the feedback appended and the plan context restated (headless CLIs are stateless).
@@ -68,7 +68,7 @@ EXECUTION LOCATOR: <worktree path, remote task id, branch, or PR URL>
 BRANCH: <branch name or detached HEAD>
 EXECUTION BASE SHA: <full 40-character SHA from the dispatch>
 HEAD SHA: <full 40-character SHA after execution>
-STEPS: per step — done/skipped + verification command result
+VERIFICATION RESULTS: per step — done/skipped + verification command result
 STOPPED BECAUSE: (only if STOPPED) which STOP condition, what was observed
 FILES CHANGED: list
 NOTES: anything the reviewer should know (deviations, surprises, judgment calls)
@@ -114,8 +114,8 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 
 Process what happened since the last session. Re-run the directory selection contract from `SKILL.md` Phase 4 (stop on ambiguity), read every plan file, then per status:
 
-- **REVIEWED** — is the work on the target branch? `git merge-base --is-ancestor <reviewed-commit> <target>` exit 0 confirms it directly; if history was rewritten (squash, rebase, cherry-pick), compare the reviewed diff against the candidate commit's diff yourself. If you can't establish equivalence, stay REVIEWED and say what evidence is missing — commit messages and titles never advance status. Once integration is confirmed, run the plan's acceptance checks at the integration commit as the trust rule permits; when they pass, set DONE with `merged_commit` (the actual target-branch commit) and `verified_at`, and regenerate the index. If checks can't run, stay REVIEWED and hand the user the exact commands.
-- **DONE** — spot-check that the done criteria still hold (cheap ones only). Don't delete plan files — they're the record.
+- **REVIEWED** — is the work on the target branch? `git merge-base --is-ancestor <reviewed-commit> <target>` exit 0 confirms it directly; if history was rewritten (squash, rebase, cherry-pick), compare the reviewed diff against the candidate commit's diff yourself. If you can't establish equivalence, stay REVIEWED and say what evidence is missing — commit messages and titles never advance status. Once integration is confirmed, run the plan's acceptance checks at the integration commit as the trust rule permits (from a temporary worktree at that commit when it isn't the user's current HEAD — never by checking out or otherwise touching the user's tree); when they pass, set DONE with `merged_commit` (the actual target-branch commit) and `verified_at`, and regenerate the index. If checks can't run, stay REVIEWED and hand the user the exact commands.
+- **DONE** — spot-check that the done criteria still hold (cheap ones only). Don't delete plan files — they're the record; to keep the active backlog lean, move closed plans (DONE or REJECTED) into `<selected-plans-dir>/archive/`, where the helper still validates them and dependency references still resolve.
 - **BLOCKED** — read the note, investigate the obstacle, and use the evidence to correct the plan's causal model. Rewrite the plan around it (new number if the approach changed fundamentally) or set REJECTED with one line of rationale. Never rewrite a plan around a quiet workaround — if the correct fix is bigger than planned, plan the correct fix or split it.
 - **EXECUTING** (stale) — flag it to the user; an executor probably died mid-run. Check `.worktrees/` for the leftover worktree.
 - **TODO** — run the drift check. If drifted: re-verify the finding still exists, then refresh the "Current state" excerpts and `base_commit`. If the finding is gone, set REJECTED ("fixed independently").
@@ -129,7 +129,7 @@ Finish with a short report: what's REVIEWED, DONE, refreshed, rejected, and exec
 Modifier on any planning invocation (`/improve --issues`, `/improve security --issues`). The flag is the user's authorization to create issues — never create them without it.
 
 1. Preflight: `gh auth status` succeeds and the repo has a GitHub remote. If either fails, write the plan files as normal and say why issues were skipped.
-2. Visibility check: `gh repo view --json visibility`. If the repo is **public**, warn the user that issues are publicly visible and get explicit confirmation before publishing any plan that describes a security vulnerability, credential location, or other sensitive finding. Non-interactive on a public repo: write such plans as normal, do NOT create their issues, and record "issue skipped: sensitive content + public repo, needs interactive confirmation" in the plan frontmatter.
+2. Visibility check: `gh repo view --json visibility`. If the repo is **public**, warn the user that issues are publicly visible and get explicit confirmation before publishing any plan that describes a security vulnerability, credential location, or other sensitive finding. Non-interactive on a public repo: write such plans as normal, do NOT create their issues, and record "issue skipped: sensitive content + public repo, needs interactive confirmation" in the plan frontmatter (`status_note`).
 3. Show the list of titles about to become issues; confirm once if interactive.
 4. Before creating anything, search for an existing issue by plan id and by exact title (`gh issue list --state all --search <term> --json number,title,url,state`, one term per invocation) and merge the results yourself. If an existing issue corresponds to the same plan, record its URL instead of creating a duplicate.
 5. Per remaining plan: `gh issue create --title "<plan title>" --body-file <plan file>`. Labels: `improve` plus the category — apply only if they exist or can be created without erroring; skip labels rather than fail.

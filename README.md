@@ -52,9 +52,11 @@ npx skills add Iwaschkin/improve
 
 The canonical artifact is the [`skills/improve/`](skills/improve/) folder —
 one `SKILL.md` plus its `references/` and `resources/`. Installing manually
-means copying that folder into whatever location your host reads skills from;
+means copying that folder into whatever location your host reads skills from
+— see your host's Agent Skills documentation (the invocation table below
+lists common spellings);
 [host-compatibility.md](skills/improve/references/host-compatibility.md)
-records the documented location and invocation for each host. The
+defines the capability contract the skill maps onto whichever host runs it. The
 `.claude-plugin/` directory is an optional Claude Code marketplace adapter,
 not the source of workflow truth — the skill works without it.
 
@@ -176,8 +178,9 @@ outright.
 ## Bundled tooling
 
 One standard-library Python (3.10+) helper ships inside the skill. It
-requires an explicit `--plans-dir` and refuses paths outside the repository
-root:
+requires an explicit `--plans-dir`, resolves it against the repository root
+(the nearest enclosing git repository — it refuses to run outside one), and
+refuses paths escaping that root:
 
 ```bash
 # regenerate the index (validates every plan first; atomic write;
@@ -193,7 +196,10 @@ transitive dependency DONE), `3` not eligible (all blockers listed), `2`
 invalid backlog or invocation. Eligibility is decided from validated plan
 files only — a stale or hand-edited index has no effect. Index generation is
 a projection and never gates an implementation; a manual executor without the
-skill installed just reports completion instead.
+skill installed just reports completion instead. Closed plans (DONE or
+REJECTED) can be moved to an `archive/` subdirectory of the plans directory —
+still validated, still satisfying dependency references, listed in a compact
+archived section instead of the main table.
 
 **Where plans live:** `docs/dev/plans/` by default. If that directory already
 belongs to another system, the skill deterministically selects

@@ -443,7 +443,7 @@ def unquote(value: str) -> str:
 
 
 def github_target(repository: str) -> str:
-    match = re.match(r"https://github\.com/([^/]+/[^/.]+)(?:\.git)?/?$", repository)
+    match = re.match(r"https://github\.com/([^/]+/[^/]+?)(?:\.git)?/?$", repository)
     return match.group(1) if match else ""
 
 
@@ -500,7 +500,7 @@ def readme_has_variant(text: str, variant: str) -> bool:
 
 
 def skill_has_variant(text: str, variant: str) -> bool:
-    return f"`{variant}" in text or f"`{variant}`" in text
+    return f"`{variant}" in text
 
 
 def main(argv: list[str] | None = None) -> int:

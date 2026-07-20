@@ -34,18 +34,29 @@ Sample output. A real plan produced by `/improve` against
 moved on — don't execute this; run `/improve` on your own repo instead.
 
 > **Executor instructions**: Follow this plan step by step. Run every
-> verification command permitted by the execution environment and confirm the
-> expected result before moving to the next step. If repository-code execution
-> is not permitted, skip those commands and report that they were not run. If
+> verification command your dispatch permits and confirm the expected result
+> before moving to the next step; if repository-code execution is not
+> permitted, skip those commands and report that they were not run. If
 > anything in the "STOP conditions" section occurs, stop and report — do not
-> improvise. When finished, report STATUS, HEAD SHA, FILES CHANGED,
-> VERIFICATION RESULTS, and NOTES. This plan's YAML frontmatter and the
-> generated plan index are reviewer-owned — do not modify either.
+> improvise. For corrective plans: observe the stated condition before
+> changing anything, fix the owning layer named below, verify the cause is
+> absent afterward, and add no suppression, weakened test, retry, special
+> case, or shim this plan does not explicitly justify — if the causal chain
+> below is disproved, STOP and report rather than silencing the symptom.
+> When finished, report STATUS, HEAD SHA, FILES CHANGED, VERIFICATION
+> RESULTS, and NOTES. This plan's YAML frontmatter and the generated plan
+> index are reviewer-owned — do not modify either.
 >
 > **Drift check (run first)**: `git diff --stat 1994caba0b2140d4d5aa765bb9d7d4412d6aaabb..HEAD -- packages/shadcn/src/commands/search.ts packages/shadcn/src/commands/view.ts packages/shadcn/src/registry/config.ts packages/shadcn/src/registry/config.test.ts`
 > If any of these changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
+
+Lifecycle: status moves TODO → EXECUTING → REVIEWED → DONE (or BLOCKED /
+REJECTED), written only by the advisor/reviewer, with the execution fields
+filled in as each transition happens. The generated index is the
+human-readable projection of this frontmatter — plans carry no duplicate
+status section.
 
 ## Why this matters
 
@@ -103,6 +114,32 @@ try {
 - `packages/shadcn/src/commands/view.ts` — view command; same pattern at ~36–55, but seeded from `configWithDefaults({})` (no style/cwd seed — this is the drift).
 - `packages/shadcn/src/registry/config.ts:20` — `configWithDefaults(config?: DeepPartial<Config>)`, the natural home for the shared helper. Has colocated tests in `packages/shadcn/src/registry/config.test.ts` — use those as the test pattern.
 - Conventions: TypeScript ESM, `@/src/...` import aliases, zod schemas from `@/src/schema`, colocated `*.test.ts` vitest files. Match `registry/config.ts` style.
+
+## Root cause and correct fix
+
+- **Applicability / causal status**: corrective, CONFIRMED.
+- **Observed condition**: static proof at the base commit — the same
+  build-defaults → overlay-partial-`components.json` → try-`getConfig()`
+  fallback appears in `search.ts` ~91–115 and `view.ts` ~36–55, acknowledged
+  in-code (`search.ts:31`: "TODO: We're duplicating logic for shadowConfig
+  here"), and the two copies have already diverged (search seeds
+  `createConfig({style: "new-york", resolvedPaths: {cwd}})`; view starts from
+  bare `configWithDefaults({})`).
+- **Causal chain**: partial-`components.json` support was needed by two
+  commands → the resolution logic was copy-pasted instead of extracted → no
+  single module owns the fallback contract → the copies drifted, and every
+  future change must be made twice and can silently diverge again.
+- **Correct fix layer**: `packages/shadcn/src/registry/config.ts`, the module
+  that already owns config resolution. Patching either command in place
+  leaves the duplicated contract standing.
+- **Prohibited shortcuts**: hand-syncing the two inline copies without
+  extraction; adding a third inline copy for any new command; "fixing" the
+  drift by changing view's runtime behavior to match search (a behavior
+  change, out of scope here).
+- **Compatibility consumers**: both commands' current behavior — the `seed`
+  parameter preserves search's seeding and the no-seed call preserves view's
+  bare defaults; no public API or response shape changes.
+- **Exception gate record**: none.
 
 ## Commands you will need
 
@@ -185,13 +222,15 @@ Replace the block at ~36–55 with `resolveShadowConfig(options.cwd)` (no seed �
 - [ ] `grep -rn "TODO: We're duplicating logic for shadowConfig" packages/shadcn/src/` returns no matches (comment removed with the duplication)
 - [ ] Both `search.ts` and `view.ts` call `resolveShadowConfig`; neither contains an inline shadow-config block
 - [ ] No files outside the in-scope list are modified (`git status`)
-- [ ] YAML frontmatter updated with the current lifecycle state and the bundled `resources/generate_plan_index.py` helper rerun
+- [ ] The diff contains no unjustified symptom silencer, and neither command retains an inline shadow-config block — the duplicated path is removed, per "Root cause and correct fix"
+- [ ] The final report contains STATUS, HEAD SHA, FILES CHANGED, VERIFICATION RESULTS, and NOTES; this plan file and the generated index are unmodified (the reviewer owns both)
 
 ## STOP conditions
 
 Stop and report back (do not improvise) if:
 
 - The code at the locations above doesn't match the excerpts (drift since `1994caba0b2140d4d5aa765bb9d7d4412d6aaabb`).
+- A verification fails unexpectedly: re-observe the condition first. If what you observe contradicts this plan's causal chain, stop and report — do not iterate speculative patches until something passes.
 - The seeding difference between search (`style: "new-york"`, cwd resolved paths) and view (bare defaults) turns out to be load-bearing in a way the `seed` parameter can't express — i.e. tests fail unless the helper grows command-specific branches.
 - Removing the block from either command requires touching files outside the in-scope list.
 - The implementation expands beyond the 4 in-scope files or becomes a broad command rewrite instead of a helper extraction.
